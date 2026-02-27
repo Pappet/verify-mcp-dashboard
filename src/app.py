@@ -6,6 +6,9 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+ORPHAN_THRESHOLD_HOURS = 2
+ABANDONED_THRESHOLD_HOURS = 4
+
 def get_db_path():
     xdg_data = os.environ.get("XDG_DATA_HOME")
     if xdg_data:
@@ -146,6 +149,72 @@ def history():
 @app.route('/stats')
 def stats():
     return render_template('stats.html')
+
+@app.route('/anomalies')
+def anomalies():
+    try:
+        conn = get_db()
+    except FileNotFoundError:
+        return render_template('anomalies.html', orphaned=[], abandoned=[], 
+                               orphan_hours=ORPHAN_THRESHOLD_HOURS, 
+                               abandon_hours=ABANDONED_THRESHOLD_HOURS, 
+                               error="Database not found")
+        
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    cur.execute("SELECT * FROM contracts WHERE status IN ('pending', 'running', 'failed')")
+    contracts = cur.fetchall()
+    
+    # Letztes Event pro Contract suchen, für Abandoned check
+    try:
+        cur.execute("SELECT contract_id, MAX(created_at) as last_event_time FROM audit_events GROUP BY contract_id")
+        last_events_rows = cur.fetchall()
+        last_event_times = {row['contract_id']: row['last_event_time'] for row in last_events_rows}
+    except Exception:
+        last_event_times = {}
+
+    now = datetime.utcnow()
+    
+    orphaned = []
+    abandoned = []
+    
+    for c in contracts:
+        status = c['status']
+        cid = c['id']
+        
+        try:
+            created_at = datetime.fromisoformat(c['created_at'].replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            continue
+            
+        if status in ('pending', 'running'):
+            delta = (now - created_at).total_seconds() / 3600
+            if delta > ORPHAN_THRESHOLD_HOURS:
+                orphaned.append(dict(c))
+                
+        elif status == 'failed':
+            last_event_str = last_event_times.get(cid, c['created_at'])
+            try:
+                last_time = datetime.fromisoformat(last_event_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            except Exception:
+                continue
+                
+            delta = (now - last_time).total_seconds() / 3600
+            if delta > ABANDONED_THRESHOLD_HOURS:
+                abandoned.append(dict(c))
+                
+    conn.close()
+    
+    orphaned.sort(key=lambda x: x['created_at'], reverse=True)
+    abandoned.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    return render_template('anomalies.html', 
+                           orphaned=orphaned, 
+                           abandoned=abandoned, 
+                           orphan_hours=ORPHAN_THRESHOLD_HOURS, 
+                           abandon_hours=ABANDONED_THRESHOLD_HOURS)
+
 
 @app.route('/api/stats_data')
 def api_stats_data():

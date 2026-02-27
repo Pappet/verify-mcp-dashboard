@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Process Violation Tracker</h1>
+
+{% if error %}
+<div class="card bg-failed" style="margin-bottom: 20px;">
+    <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: 20px;">
+    <h2>Orphaned Contracts</h2>
+    <p style="color: #a6adc8; font-size: 0.9em; margin-bottom: 15px;">
+        Contracts that have been pending or running for more than {{ orphan_hours }} hours without completion.
+        This usually means the verification process was never started or crashed silently.
+    </p>
+    {% if orphaned %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Task</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in orphaned %}
+                <tr>
+                    <td><code>{{ c.id[:8] }}...</code></td>
+                    <td>{{ c.task }}</td>
+                    <td><span class="badge bg-{{ c.status }}">{{ c.status.upper() }}</span></td>
+                    <td>{{ c.created_at[:19].replace('T', ' ') }}</td>
+                    <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}" class="btn">View Details</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No orphaned contracts found. Good job!</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Abandoned Contracts</h2>
+    <p style="color: #a6adc8; font-size: 0.9em; margin-bottom: 15px;">
+        Contracts that failed and have not seen a retry for more than {{ abandon_hours }} hours.
+        This indicates the agent gave up or ignored the failure instead of fixing it.
+    </p>
+    {% if abandoned %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Task</th>
+                    <th>Created At</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in abandoned %}
+                <tr>
+                    <td><code>{{ c.id[:8] }}...</code></td>
+                    <td>{{ c.task }}</td>
+                    <td>{{ c.created_at[:19].replace('T', ' ') }}</td>
+                    <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}" class="btn">View Details</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No abandoned contracts found. Agents are fixing their mistakes!</p>
+    {% endif %}
+</div>
+{% endblock %}

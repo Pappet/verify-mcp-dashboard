@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>System Overview</h1>
+
+<div class="card">
+    <h2>Live Statistics</h2>
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h3>Total Contracts</h3>
+            <div class="value">{{ stats.total }}</div>
+        </div>
+        <div class="stat-box">
+            <h3>Passed</h3>
+            <div class="value status-passed">{{ stats.passed }}</div>
+        </div>
+        <div class="stat-box">
+            <h3>Failed</h3>
+            <div class="value status-failed">{{ stats.failed }}</div>
+        </div>
+        <div class="stat-box">
+            <h3>Pass Rate</h3>
+            <div class="value">{{ stats.rate }}%</div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Active / Recent Contracts</h2>
+    <table>
+        <tr>
+            <th>Task</th>
+            <th>Status</th>
+            <th>Created At</th>
+            <th>Action</th>
+        </tr>
+        {% for c in active_contracts %}
+        <tr>
+            <td><strong>{{ c.description }}</strong><br><small>{{ c.task }}</small></td>
+            <td><span class="badge bg-{{ c.status }}">{{ c.status.upper() }}</span></td>
+            <td>{{ c.created_at[:16].replace('T', ' ') }}</td>
+            <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}">View Details</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Optional: Auto-refresh dashboard every 10 seconds if we are on the main page
+    if (window.location.pathname === '/') {
+        setTimeout(() => window.location.reload(), 10000);
+    }
+</script>
+{% endblock %}

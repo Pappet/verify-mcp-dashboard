@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Contract Details</h1>
+
+<div class="card">
+    <h2>{{ contract.description }}</h2>
+    <p><strong>Task:</strong> {{ contract.task }}</p>
+    <p><strong>Status:</strong> <span class="badge bg-{{ contract.status }}">{{ contract.status.upper() }}</span></p>
+    <p><strong>Created:</strong> {{ contract.created_at.replace('T', ' ') }}</p>
+    <p><strong>Contract ID:</strong> <code>{{ contract.id }}</code></p>
+</div>
+
+<h2>Check Results</h2>
+{% if results %}
+{% for r in results %}
+<div class="card"
+    style="border-left: 4px solid {% if r.status == 'passed' %}var(--green){% else %}var(--red){% endif %};">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0;">{{ r.check_name }}</h3>
+        <span class="badge bg-{{ r.status }}">{{ r.status.upper() }} ({{ r.duration_ms }}ms)</span>
+    </div>
+    <p><strong>Message:</strong> {{ r.message }}</p>
+    {% if r.details %}
+    <details>
+        <summary style="cursor: pointer; color: var(--blue);">View Output Details</summary>
+        <pre>{{ r.details }}</pre>
+    </details>
+    {% endif %}
+</div>
+{% endfor %}
+{% else %}
+<div class="card">
+    <p>No results yet. Contract is likely pending or running.</p>
+    <details>
+        <summary style="cursor: pointer; color: var(--blue);">View Planned Checks (JSON)</summary>
+        <pre>{{ contract.checks_json }}</pre>
+    </details>
+</div>
+{% endif %}
+
+<a href="javascript:history.back()">← Back</a>
+{% endblock %}

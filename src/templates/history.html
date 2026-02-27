@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Verification History</h1>
+
+<div class="card">
+    <form class="filter-form" method="GET" action="{{ url_for('history') }}">
+        <input type="text" name="q" placeholder="Search task or description..." value="{{ request.args.get('q', '') }}">
+        <select name="status">
+            <option value="">All Statuses</option>
+            <option value="passed" {% if request.args.get('status')=='passed' %}selected{% endif %}>Passed</option>
+            <option value="failed" {% if request.args.get('status')=='failed' %}selected{% endif %}>Failed</option>
+            <option value="running" {% if request.args.get('status')=='running' %}selected{% endif %}>Running</option>
+        </select>
+        <button type="submit">Filter</button>
+        <a href="{{ url_for('history') }}" style="align-self: center; margin-left: 10px;">Clear</a>
+    </form>
+
+    <table>
+        <tr>
+            <th>Task</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Action</th>
+        </tr>
+        {% for c in contracts %}
+        <tr>
+            <td><strong>{{ c.description }}</strong><br><small>{{ c.task }}</small></td>
+            <td><span class="badge bg-{{ c.status }}">{{ c.status.upper() }}</span></td>
+            <td>{{ c.created_at[:16].replace('T', ' ') }}</td>
+            <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}">View Details</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

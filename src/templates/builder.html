@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Interactive Contract Builder</h1>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2>1. General Information</h2>
+        <div style="display: flex; gap: 10px;">
+            <select id="templateSelect" style="flex: 1;">
+                <option value="">Load Template...</option>
+            </select>
+            <button onclick="loadTemplate()" class="btn"
+                style="background: var(--sapphire, #74c7ec); color: #11111b; border: none;">Load</button>
+        </div>
+    </div>
+    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <input type="text" id="contractTask" placeholder="Contract Task Name" style="flex: 1;">
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="contractDescription" placeholder="Description of what this verifies" style="flex: 1;">
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2>2. Checks</h2>
+        <div>
+            <select id="checkTypeSelect" style="margin-right: 10px;">
+                <option value="">Loading types...</option>
+            </select>
+            <button onclick="addCheck()" class="btn" style="background: var(--green); color: #11111b; border: none;">+
+                Add Check</button>
+        </div>
+    </div>
+
+    <div id="checksContainer" style="display: flex; flex-direction: column; gap: 15px;">
+        <!-- Dynamic check forms will be injected here -->
+    </div>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2>3. Generated JSON</h2>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="templateName" placeholder="Template Name" style="width: 200px;">
+            <button onclick="saveTemplate()" class="btn"
+                style="background: var(--green); color: #11111b; border: none;">Save as Template</button>
+            <button onclick="copyJson()" class="btn" style="background: var(--blue); color: #11111b; border: none;">Copy
+                to Clipboard</button>
+        </div>
+    </div>
+    <pre><code class="language-json" id="jsonOutput">{}</code></pre>
+</div>
+
+<script>
+    let schema = null;
+    let checks = [];
+
+    let templates = [];
+
+    // Fetch schema
+    fetch('/api/schema')
+        .then(r => r.json())
+        .then(data => {
+            schema = data;
+            const select = document.getElementById('checkTypeSelect');
+            select.innerHTML = '';
+            data.check_types.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name;
+                select.appendChild(opt);
+            });
+        });
+
+    function fetchTemplates() {
+        fetch('/api/templates')
+            .then(r => r.json())
+            .then(data => {
+                templates = data.templates;
+                const select = document.getElementById('templateSelect');
+                select.innerHTML = '<option value="">Load Template...</option>';
+                templates.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name;
+                    select.appendChild(opt);
+                });
+            });
+    }
+
+    function loadTemplate() {
+        const id = parseInt(document.getElementById('templateSelect').value);
+        if (!id) return;
+        const template = templates.find(t => t.id === id);
+        if (!template) return;
+
+        const payload = template.payload;
+        document.getElementById('contractTask').value = payload.task || '';
+        document.getElementById('contractDescription').value = payload.description || '';
+
+        checks = [];
+        if (payload.checks) {
+            payload.checks.forEach(c => {
+                if (c.check_type && c.check_type.type) {
+                    const typeDef = schema.check_types.find(t => t.id === c.check_type.type);
+                    if (typeDef) {
+                        checks.push({
+                            id: Date.now() + Math.random(),
+                            typeDef: typeDef,
+                            data: JSON.parse(JSON.stringify(c))
+                        });
+                    }
+                }
+            });
+        }
+        renderChecks();
+        updateJson();
+    }
+
+    function saveTemplate() {
+        const name = document.getElementById('templateName').value;
+        if (!name) {
+            alert('Please enter a template name');
+            return;
+        }
+
+        const payload = {
+            task: document.getElementById('contractTask').value,
+            description: document.getElementById('contractDescription').value,
+            checks: checks.map(c => c.data)
+        };
+
+        fetch('/api/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, payload: payload })
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                alert('Template saved!');
+                document.getElementById('templateName').value = '';
+                fetchTemplates();
+            }
+        });
+    }
+
+    function addCheck() {
+        if (!schema) return;
+        const typeId = document.getElementById('checkTypeSelect').value;
+        const typeSchema = schema.check_types.find(t => t.id === typeId);
+        if (!typeSchema) return;
+
+        const checkId = Date.now();
+        checks.push({
+            id: checkId,
+            typeDef: typeSchema,
+            data: {
+                name: `New ${typeSchema.name} Check`,
+                severity: "error",
+                check_type: { type: typeId }
+            }
+        });
+
+        renderChecks();
+        updateJson();
+    }
+
+    function removeCheck(id) {
+        checks = checks.filter(c => c.id !== id);
+        renderChecks();
+        updateJson();
+    }
+
+    function renderChecks() {
+        const container = document.getElementById('checksContainer');
+        container.innerHTML = '';
+
+        if (checks.length === 0) {
+            container.innerHTML = '<p style="color: #a6adc8;">No checks added yet. Select a type and click Add.</p>';
+            return;
+        }
+
+        checks.forEach((check, index) => {
+            const div = document.createElement('div');
+            div.style.background = 'rgba(0,0,0,0.2)';
+            div.style.padding = '15px';
+            div.style.borderRadius = '6px';
+            div.style.borderLeft = '3px solid var(--blue)';
+            div.style.display = 'flex';
+            div.style.flexDirection = 'column';
+            div.style.gap = '10px';
+
+            // Check Header (Name + Severity + Delete)
+            let headerHtml = `
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <strong style="width: 150px;">${check.typeDef.name}</strong>
+                    <input type="text" value="${check.data.name}" onchange="updateCheck(${check.id}, 'name', this.value)" placeholder="Check Name" style="flex: 1;">
+                    <select onchange="updateCheck(${check.id}, 'severity', this.value)">
+                        ${schema.severities.map(s => `<option value="${s}" ${check.data.severity === s ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}
+                    </select>
+                    <button onclick="removeCheck(${check.id})" class="btn" style="background: var(--red); color: white; border: none; padding: 4px 8px;">X</button>
+                </div>
+            `;
+
+            // Dynamic Fields
+            let fieldsHtml = '<div style="display: grid; grid-template-columns: 100px 1fr; gap: 10px; margin-top: 10px; align-items: center;">';
+
+            check.typeDef.fields.forEach(field => {
+                let val = check.data.check_type[field.name];
+                val = val !== undefined ? val : '';
+
+                fieldsHtml += `<label style="color: #a6adc8; font-size: 0.9em;">${field.name}</label>`;
+
+                if (field.type === 'string' || field.type === 'number') {
+                    fieldsHtml += `<input type="${field.type === 'number' ? 'number' : 'text'}" value="${val}" onchange="updateCheckField(${check.id}, '${field.name}', this.value)" style="width: 100%; box-sizing: border-box;">`;
+                } else if (field.type === 'array') {
+                    // Simple comma separated for array
+                    const arrVal = Array.isArray(val) ? val.join(', ') : val;
+                    fieldsHtml += `<input type="text" value="${arrVal}" placeholder="Comma separated values" onchange="updateCheckField(${check.id}, '${field.name}', this.value, true)" style="width: 100%; box-sizing: border-box;">`;
+                }
+            });
+
+            fieldsHtml += '</div>';
+            div.innerHTML = headerHtml + fieldsHtml;
+            container.appendChild(div);
+        });
+    }
+
+    function updateCheck(id, key, value) {
+        const check = checks.find(c => c.id === id);
+        if (check) check.data[key] = value;
+        updateJson();
+    }
+
+    function updateCheckField(id, fieldName, value, isArray = false) {
+        const check = checks.find(c => c.id === id);
+        if (check) {
+            if (isArray) {
+                check.data.check_type[fieldName] = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            } else {
+                check.data.check_type[fieldName] = value;
+            }
+        }
+        updateJson();
+    }
+
+    function updateJson() {
+        const payload = {
+            task: document.getElementById('contractTask').value,
+            description: document.getElementById('contractDescription').value,
+            checks: checks.map(c => c.data)
+        };
+
+        document.getElementById('jsonOutput').textContent = JSON.stringify(payload, null, 2);
+    }
+
+    // Listen to generic inputs
+    document.getElementById('contractTask').addEventListener('keyup', updateJson);
+    document.getElementById('contractDescription').addEventListener('keyup', updateJson);
+
+    function copyJson() {
+        const jsonText = document.getElementById('jsonOutput').textContent;
+        navigator.clipboard.writeText(jsonText).then(() => {
+            alert('JSON copied to clipboard!');
+        });
+    }
+
+    // Initial paint
+    renderChecks();
+    fetchTemplates();
+</script>
+{% endblock %}

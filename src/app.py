@@ -17,6 +17,32 @@ def get_db_path():
         base = os.path.join(os.path.expanduser("~"), ".local", "share", "verify-mcp")
     return os.path.join(base, "verify.db")
 
+def get_dashboard_db_path():
+    xdg_data = os.environ.get("XDG_DATA_HOME")
+    if xdg_data:
+        base = os.path.join(xdg_data, "verify-mcp")
+    else:
+        base = os.path.join(os.path.expanduser("~"), ".local", "share", "verify-mcp")
+    os.makedirs(base, exist_ok=True)
+    return os.path.join(base, "dashboard_local.db")
+
+def init_dashboard_db():
+    db_path = get_dashboard_db_path()
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_dashboard_db()
+
 def get_db():
     db_path = get_db_path()
     if not os.path.exists(db_path):
@@ -215,6 +241,56 @@ def anomalies():
                            orphan_hours=ORPHAN_THRESHOLD_HOURS, 
                            abandon_hours=ABANDONED_THRESHOLD_HOURS)
 
+@app.route('/builder')
+def builder():
+    return render_template('builder.html')
+
+@app.route('/api/schema')
+def api_schema():
+    # Definiert das Schema der unterstützten Checks für das Frontend
+    schema = {
+        "check_types": [
+            {"id": "command_succeeds", "name": "Command Succeeds", "fields": [{"name": "command", "type": "string"}]},
+            {"id": "command_output_matches", "name": "Command Output Matches", "fields": [{"name": "command", "type": "string"}, {"name": "pattern", "type": "string"}]},
+            {"id": "file_exists", "name": "File Exists", "fields": [{"name": "path", "type": "string"}]},
+            {"id": "file_contains_patterns", "name": "File Contains Patterns", "fields": [{"name": "path", "type": "string"}, {"name": "patterns", "type": "array"}]},
+            {"id": "file_excludes_patterns", "name": "File Excludes Patterns", "fields": [{"name": "path", "type": "string"}, {"name": "patterns", "type": "array"}]},
+            {"id": "json_schema_valid", "name": "JSON Schema Valid", "fields": [{"name": "schema_path", "type": "string"}, {"name": "json_path", "type": "string"}]},
+            {"id": "value_in_range", "name": "Value In Range", "fields": [{"name": "value", "type": "number"}, {"name": "min", "type": "number"}, {"name": "max", "type": "number"}]},
+            {"id": "diff_size_limit", "name": "Diff Size Limit", "fields": [{"name": "max_lines", "type": "number"}]},
+            {"id": "assertion", "name": "Assertion", "fields": [{"name": "condition", "type": "string"}]},
+            {"id": "python_type_check", "name": "Python Type Check", "fields": [{"name": "path", "type": "string"}]},
+            {"id": "pytest_result", "name": "Pytest Result", "fields": [{"name": "path", "type": "string"}]},
+            {"id": "python_import_graph", "name": "Python Import Graph", "fields": [{"name": "path", "type": "string"}, {"name": "forbidden_imports", "type": "array"}]},
+            {"id": "json_registry_consistency", "name": "JSON Registry Consistency", "fields": [{"name": "registry_path", "type": "string"}, {"name": "schema_path", "type": "string"}]}
+        ],
+        "severities": ["info", "warning", "error"]
+    }
+    return jsonify(schema)
+
+@app.route('/api/templates', methods=['GET', 'POST'])
+def api_templates():
+    db_path = get_dashboard_db_path()
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    if request.method == 'POST':
+        data = request.json
+        name = data.get('name', 'Unnamed Template')
+        payload = json.dumps(data.get('payload', {}))
+        
+        cur.execute("INSERT INTO templates (name, payload) VALUES (?, ?)", (name, payload))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": "Template saved"}), 201
+        
+    else:
+        cur.execute("SELECT * FROM templates ORDER BY created_at DESC")
+        rows = cur.fetchall()
+        templates = [{"id": r["id"], "name": r["name"], "payload": json.loads(r["payload"]), "created_at": r["created_at"]} for r in rows]
+        conn.close()
+        return jsonify({"templates": templates})
 
 @app.route('/api/stats_data')
 def api_stats_data():

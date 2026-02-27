@@ -98,6 +98,8 @@ def history():
     
     search_query = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '').strip()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
     page = int(request.args.get('page', 1))
     per_page = 50
     offset = (page - 1) * per_page
@@ -116,18 +118,79 @@ def history():
         count_query += " AND status = ?"
         params.append(status_filter)
         
+    if start_date:
+        query += " AND created_at >= ?"
+        count_query += " AND created_at >= ?"
+        params.append(start_date + "T00:00:00")
+        
+    if end_date:
+        query += " AND created_at <= ?"
+        count_query += " AND created_at <= ?"
+        params.append(end_date + "T23:59:59")
+        
     query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
     
     cur.execute(count_query, params)
     total_count = cur.fetchone()[0]
     total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
     
-    params.extend([per_page, offset])
+    params.append(per_page)
+    params.append(offset)
     cur.execute(query, params)
     contracts = cur.fetchall()
     conn.close()
     
     return render_template('history.html', contracts=contracts, page=page, total_pages=total_pages)
+
+@app.route('/stats')
+def stats():
+    return render_template('stats.html')
+
+@app.route('/api/stats_data')
+def api_stats_data():
+    try:
+        conn = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 500
+
+    cur = conn.cursor()
+    
+    cur.execute("""
+        SELECT date(created_at) as day, status, COUNT(*) as count 
+        FROM contracts 
+        GROUP BY day, status
+        ORDER BY day ASC
+    """)
+    daily_rows = cur.fetchall()
+    
+    daily_stats = {}
+    for r in daily_rows:
+        day = r['day']
+        if day not in daily_stats:
+            daily_stats[day] = {'passed': 0, 'failed': 0, 'total': 0}
+        st = r['status']
+        cnt = r['count']
+        if st in ['passed', 'failed']:
+            daily_stats[day][st] += cnt
+            daily_stats[day]['total'] += cnt
+            
+    cur.execute("""
+        SELECT check_name, COUNT(*) as count 
+        FROM check_results 
+        WHERE status = 'failed' 
+        GROUP BY check_name 
+        ORDER BY count DESC 
+        LIMIT 10
+    """)
+    failing_checks_rows = cur.fetchall()
+    failing_checks = [{'name': r['check_name'], 'count': r['count']} for r in failing_checks_rows]
+    
+    conn.close()
+    
+    return jsonify({
+        "daily": daily_stats,
+        "failing_checks": failing_checks
+    })
 
 @app.route('/contract/<contract_id>')
 def contract_detail(contract_id):

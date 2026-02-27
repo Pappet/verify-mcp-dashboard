@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>Statistics & Insights</h1>
+
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
+    <div class="card">
+        <h2>Pass Rate Over Time</h2>
+        <canvas id="passRateChart"></canvas>
+    </div>
+
+    <div class="card">
+        <h2>Most Frequent Failing Checks</h2>
+        <canvas id="failingChecksChart"></canvas>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    fetch('/api/stats_data')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) return;
+
+            // Prepare Daily Stats data
+            const labels = Object.keys(data.daily);
+            const passRates = labels.map(day => {
+                const total = data.daily[day].total;
+                if (total === 0) return 0;
+                return (data.daily[day].passed / total) * 100;
+            });
+
+            const ctxPassRate = document.getElementById('passRateChart').getContext('2d');
+            new Chart(ctxPassRate, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Pass Rate (%)',
+                        data: passRates,
+                        borderColor: '#a6e3a1', // green
+                        backgroundColor: 'rgba(166, 227, 161, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { color: '#cdd6f4' } },
+                        x: { ticks: { color: '#cdd6f4' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#cdd6f4' } }
+                    }
+                }
+            });
+
+            // Prepare Failing Checks data
+            const failLabels = data.failing_checks.map(c => c.name.length > 20 ? c.name.substring(0, 20) + '...' : c.name);
+            const failData = data.failing_checks.map(c => c.count);
+
+            const ctxFails = document.getElementById('failingChecksChart').getContext('2d');
+            new Chart(ctxFails, {
+                type: 'bar',
+                data: {
+                    labels: failLabels,
+                    datasets: [{
+                        label: 'Fail Count',
+                        data: failData,
+                        backgroundColor: '#f38ba8' // red
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'y', // horizontal bar chart
+                    scales: {
+                        y: { ticks: { color: '#cdd6f4' } },
+                        x: { beginAtZero: true, ticks: { color: '#cdd6f4', stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        })
+        .catch(err => console.error(err));
+</script>
+{% endblock %}

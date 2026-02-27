@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import json
-from flask import Flask, render_template, request, abort
+from flask import Flask, render_template, request, abort, jsonify
 
 app = Flask(__name__)
 
@@ -58,6 +58,39 @@ def dashboard():
 
     return render_template('dashboard.html', stats=stats, active_contracts=active_contracts)
 
+@app.route('/api/dashboard')
+def api_dashboard():
+    try:
+        conn = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 500
+
+    cur = conn.cursor()
+    cur.execute("SELECT status, COUNT(*) as count FROM contracts GROUP BY status")
+    rows = cur.fetchall()
+    
+    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rate': 0.0}
+    for r in rows:
+        st = r['status']
+        cnt = r['count']
+        stats['total'] += cnt
+        if st in stats:
+            stats[st] += cnt
+            
+    completed = stats['passed'] + stats['failed']
+    if completed > 0:
+        stats['rate'] = round((stats['passed'] / completed) * 100, 1)
+
+    cur.execute("""
+        SELECT id, description, task, status, created_at 
+        FROM contracts 
+        ORDER BY created_at DESC LIMIT 10
+    """)
+    active_contracts = [dict(row) for row in cur.fetchall()]
+    conn.close()
+
+    return jsonify({"stats": stats, "active_contracts": active_contracts})
+
 @app.route('/history')
 def history():
     conn = get_db()
@@ -65,25 +98,36 @@ def history():
     
     search_query = request.args.get('q', '').strip()
     status_filter = request.args.get('status', '').strip()
+    page = int(request.args.get('page', 1))
+    per_page = 50
+    offset = (page - 1) * per_page
     
     query = "SELECT id, description, task, status, created_at FROM contracts WHERE 1=1"
+    count_query = "SELECT COUNT(*) FROM contracts WHERE 1=1"
     params = []
     
     if search_query:
         query += " AND (description LIKE ? OR task LIKE ?)"
+        count_query += " AND (description LIKE ? OR task LIKE ?)"
         params.extend([f"%{search_query}%", f"%{search_query}%"])
         
     if status_filter:
         query += " AND status = ?"
+        count_query += " AND status = ?"
         params.append(status_filter)
         
-    query += " ORDER BY created_at DESC LIMIT 100"
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
     
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()[0]
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    
+    params.extend([per_page, offset])
     cur.execute(query, params)
     contracts = cur.fetchall()
     conn.close()
     
-    return render_template('history.html', contracts=contracts)
+    return render_template('history.html', contracts=contracts, page=page, total_pages=total_pages)
 
 @app.route('/contract/<contract_id>')
 def contract_detail(contract_id):

@@ -8,26 +8,26 @@
     <div class="stats-grid">
         <div class="stat-box">
             <h3>Total Contracts</h3>
-            <div class="value">{{ stats.total }}</div>
+            <div class="value" id="stat-total">{{ stats.total }}</div>
         </div>
         <div class="stat-box">
             <h3>Passed</h3>
-            <div class="value status-passed">{{ stats.passed }}</div>
+            <div class="value status-passed" id="stat-passed">{{ stats.passed }}</div>
         </div>
         <div class="stat-box">
             <h3>Failed</h3>
-            <div class="value status-failed">{{ stats.failed }}</div>
+            <div class="value status-failed" id="stat-failed">{{ stats.failed }}</div>
         </div>
         <div class="stat-box">
             <h3>Pass Rate</h3>
-            <div class="value">{{ stats.rate }}%</div>
+            <div class="value" id="stat-rate">{{ stats.rate }}%</div>
         </div>
     </div>
 </div>
 
 <div class="card">
     <h2>Active / Recent Contracts</h2>
-    <table>
+    <table id="contracts-table">
         <tr>
             <th>Task</th>
             <th>Status</th>
@@ -47,10 +47,4 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // Optional: Auto-refresh dashboard every 10 seconds if we are on the main page
-    if (window.location.pathname === '/') {
-        setTimeout(() => window.location.reload(), 10000);
-    }
-</script>
 {% endblock %}

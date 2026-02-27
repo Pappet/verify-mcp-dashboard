@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="de">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block head %}{% endblock %}
 </head>
+
 <body>
     <nav>
         <a href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -17,6 +19,8 @@
     {% endblock %}
 
     {% block scripts %}
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% endblock %}
 </body>
+
 </html>

@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+{% endblock %}
+
 {% block content %}
 <h1>Contract Details</h1>
 
@@ -24,7 +28,7 @@
     {% if r.details %}
     <details>
         <summary style="cursor: pointer; color: var(--blue);">View Output Details</summary>
-        <pre>{{ r.details }}</pre>
+        <pre><code class="language-log">{{ r.details }}</code></pre>
     </details>
     {% endif %}
 </div>
@@ -34,10 +38,15 @@
     <p>No results yet. Contract is likely pending or running.</p>
     <details>
         <summary style="cursor: pointer; color: var(--blue);">View Planned Checks (JSON)</summary>
-        <pre>{{ contract.checks_json }}</pre>
+        <pre><code class="language-json">{{ contract.checks_json }}</code></pre>
     </details>
 </div>
 {% endif %}
 
 <a href="javascript:history.back()">← Back</a>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>hljs.highlightAll();</script>
 {% endblock %}

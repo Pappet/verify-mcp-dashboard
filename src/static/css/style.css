@@ -172,3 +172,48 @@ pre {
     border-radius: 6px;
     overflow-x: auto;
 }
+
+.timeline {
+    border-left: 2px solid #45475a;
+    margin-left: 10px;
+    padding-left: 20px;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 2px solid var(--blue);
+}
+
+.timeline-item.passed::before {
+    border-color: var(--green);
+    background: var(--green);
+}
+
+.timeline-item.failed::before {
+    border-color: var(--red);
+    background: var(--red);
+}
+
+.timeline-date {
+    font-size: 0.8em;
+    color: #a6adc8;
+    margin-bottom: 4px;
+}
+
+.timeline-content {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 10px;
+    border-radius: 6px;
+}

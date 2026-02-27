@@ -7,15 +7,31 @@
 {% block content %}
 <h1>Statistics & Insights</h1>
 
-<div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
+<div class="card" style="margin-bottom: 20px;">
+    <h2>Global Metrics</h2>
+    <div class="stats-grid">
+        <div class="stat-box">
+            <h3>Avg Time-to-Resolution</h3>
+            <div class="value" id="kpi-resolution">-</div>
+            <div style="font-size: 0.8em; color: #a6adc8;">Minutes (Create -> Passed)</div>
+        </div>
+    </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 20px;">
     <div class="card">
         <h2>Pass Rate Over Time</h2>
         <canvas id="passRateChart"></canvas>
     </div>
 
     <div class="card">
-        <h2>Most Frequent Failing Checks</h2>
+        <h2>Most Frequent Failing Checks (Legacy DB)</h2>
         <canvas id="failingChecksChart"></canvas>
+    </div>
+
+    <div class="card">
+        <h2>Agent Struggle Score (Retry Frequency)</h2>
+        <canvas id="struggleChart"></canvas>
     </div>
 </div>
 
@@ -83,6 +99,36 @@
                     scales: {
                         y: { ticks: { color: '#cdd6f4' } },
                         x: { beginAtZero: true, ticks: { color: '#cdd6f4', stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            // Prepare Struggle Score data
+            document.getElementById('kpi-resolution').textContent = data.avg_resolution_minutes;
+
+            const struggleLabels = data.struggle_scores.map(c => c.name.length > 20 ? c.name.substring(0, 20) + '...' : c.name);
+            const struggleData = data.struggle_scores.map(c => c.count);
+
+            const ctxStruggle = document.getElementById('struggleChart').getContext('2d');
+            new Chart(ctxStruggle, {
+                type: 'bar',
+                data: {
+                    labels: struggleLabels,
+                    datasets: [{
+                        label: 'Total Retries',
+                        data: struggleData,
+                        backgroundColor: '#f9e2af' // yellow
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    indexAxis: 'x',
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#cdd6f4', stepSize: 1 } },
+                        x: { ticks: { color: '#cdd6f4' } }
                     },
                     plugins: {
                         legend: { display: false }

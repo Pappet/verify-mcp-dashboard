@@ -43,6 +43,31 @@
 </div>
 {% endif %}
 
+<h2>Audit Trail</h2>
+<div class="card">
+    {% if audit_events %}
+    <div class="timeline">
+        {% for event in audit_events %}
+        {% set marker_class = 'passed' if 'passed' in event.event_type else ('failed' if 'failed' in event.event_type
+        else '') %}
+        <div class="timeline-item {{ marker_class }}">
+            <div class="timeline-date">{{ event.created_at[:19].replace('T', ' ') }}</div>
+            <div class="timeline-content">
+                <strong>{{ event.event_type }}</strong>
+                {% if event.failed_checks_summary %}
+                <p style="margin: 5px 0 0 0; color: var(--red); font-size: 0.9em;">
+                    Failed Checks: {{ event.failed_checks_summary }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No audit events found for this contract.</p>
+    {% endif %}
+</div>
+
 <a href="javascript:history.back()">← Back</a>
 {% endblock %}
 

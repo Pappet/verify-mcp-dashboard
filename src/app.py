@@ -2,6 +2,7 @@ import os
 import sqlite3
 import json
 from flask import Flask, render_template, request, abort, jsonify
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -174,22 +175,73 @@ def api_stats_data():
             daily_stats[day][st] += cnt
             daily_stats[day]['total'] += cnt
             
-    cur.execute("""
-        SELECT check_name, COUNT(*) as count 
-        FROM check_results 
-        WHERE status = 'failed' 
-        GROUP BY check_name 
-        ORDER BY count DESC 
-        LIMIT 10
-    """)
-    failing_checks_rows = cur.fetchall()
-    failing_checks = [{'name': r['check_name'], 'count': r['count']} for r in failing_checks_rows]
+    cur.execute("SELECT * FROM audit_events ORDER BY contract_id, created_at ASC")
+    all_audit_rows = cur.fetchall()
+    
+    # Contract Aggregation
+    contract_events = {}
+    for r in all_audit_rows:
+        cid = r['contract_id']
+        if cid not in contract_events:
+            contract_events[cid] = []
+        contract_events[cid].append(dict(r))
+        
+    total_resolution_time_seconds = 0.0
+    resolved_contracts_count = 0
+    struggle_scores = {} # type: ignore
+    
+    for cid, events in contract_events.items():
+        created_time = None
+        passed_time = None
+        
+        # Parse Dates
+        for e in events:
+            if e['event_type'] == 'contract_created':
+                try:
+                    created_time = datetime.fromisoformat(e['created_at'].replace('Z', '+00:00'))
+                except:
+                    pass
+            elif e['event_type'] == 'verification_passed':
+                try:
+                    passed_time = datetime.fromisoformat(e['created_at'].replace('Z', '+00:00'))
+                except:
+                    pass
+            elif e['event_type'] == 'verification_failed':
+                # Parse details for failing checks
+                if e['details']:
+                    try:
+                        details_json = json.loads(e['details'])
+                        if isinstance(details_json, list):
+                            for c in details_json:
+                                if c.get('status') == 'failed':
+                                    cname = c.get('check', 'Unknown')
+                                    struggle_scores[cname] = struggle_scores.get(cname, 0) + 1
+                    except:
+                        pass
+        
+        if created_time and passed_time:
+            delta = (passed_time - created_time).total_seconds()
+            if delta > 0:
+                total_resolution_time_seconds += delta
+                resolved_contracts_count += 1
+                
+    avg_resolution_seconds = 0.0
+    if resolved_contracts_count > 0:
+        avg_resolution_seconds = total_resolution_time_seconds / resolved_contracts_count
+        
+    avg_resolution_minutes = round(avg_resolution_seconds / 60, 2)
+    
+    # Top 10 Struggling Checks
+    sorted_struggle = sorted(struggle_scores.items(), key=lambda x: x[1], reverse=True)[:10]
+    struggle_list = [{'name': k, 'count': v} for k, v in sorted_struggle]
     
     conn.close()
     
     return jsonify({
         "daily": daily_stats,
-        "failing_checks": failing_checks
+        "failing_checks": failing_checks,
+        "struggle_scores": struggle_list,
+        "avg_resolution_minutes": avg_resolution_minutes
     })
 
 @app.route('/contract/<contract_id>')
@@ -205,6 +257,27 @@ def contract_detail(contract_id):
         
     cur.execute("SELECT * FROM check_results WHERE contract_id = ? ORDER BY id ASC", (contract_id,))
     results = cur.fetchall()
+    
+    # Audit Timeline laden
+    cur.execute("SELECT * FROM audit_events WHERE contract_id = ? ORDER BY created_at ASC", (contract_id,))
+    audit_rows = cur.fetchall()
+    
+    audit_events = []
+    for row in audit_rows:
+        event = dict(row)
+        # Check Details extrahieren, um bei Failed direkt den Schuldigen zu sehen
+        if event['event_type'] == 'verification_failed' and event['details']:
+            try:
+                details_json = json.loads(event['details'])
+                if isinstance(details_json, list) and len(details_json) > 0:
+                    # Nimm die Namen der gefailten Checks (meistens im details-Array)
+                    failed_checks = [c.get('check', 'Unknown') for c in details_json if c.get('status') == 'failed']
+                    if failed_checks:
+                        event['failed_checks_summary'] = ", ".join(failed_checks)
+            except Exception:
+                pass
+        audit_events.append(event)
+        
     conn.close()
     
     # Pretty print JSON falls es angezeigt werden muss
@@ -214,7 +287,7 @@ def contract_detail(contract_id):
     except:
         pass
 
-    return render_template('detail.html', contract=contract_dict, results=results)
+    return render_template('detail.html', contract=contract_dict, results=results, audit_events=audit_events)
 
 if __name__ == '__main__':
     # Startet lokal, Debug-Modus an für schnelle Iteration

@@ -412,7 +412,31 @@ def contract_detail(contract_id):
         abort(404, description="Contract not found")
         
     cur.execute("SELECT * FROM check_results WHERE contract_id = ? ORDER BY id ASC", (contract_id,))
-    results = cur.fetchall()
+    db_results = cur.fetchall()
+    
+    breaks_json = contract['checks_json']
+    checks_definition_map = {}
+    if breaks_json:
+        try:
+            checks_data = json.loads(breaks_json)
+            if isinstance(checks_data, list):
+                for chk in checks_data:
+                    checks_definition_map[chk.get('name')] = chk.get('check_type', {})
+        except Exception:
+            pass
+
+    results = []
+    for r in db_results:
+        r_dict = dict(r)
+        check_name = r_dict.get('check_name')
+        if check_name in checks_definition_map:
+            try:
+                r_dict['definition_json'] = json.dumps(checks_definition_map[check_name], indent=2)
+            except Exception:
+                r_dict['definition_json'] = "{}"
+        else:
+            r_dict['definition_json'] = "{}"
+        results.append(r_dict)
     
     # Audit Timeline laden
     cur.execute("SELECT * FROM audit_events WHERE contract_id = ? ORDER BY created_at ASC", (contract_id,))

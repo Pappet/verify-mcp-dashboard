@@ -25,6 +25,12 @@
         <span class="badge bg-{{ r.status }}">{{ r.status.upper() }} ({{ r.duration_ms }}ms)</span>
     </div>
     <p><strong>Message:</strong> {{ r.message }}</p>
+    {% if r.definition_json and r.definition_json != '{}' %}
+    <details>
+        <summary style="cursor: pointer; color: var(--blue);">View Check Definition</summary>
+        <pre><code class="language-json">{{ r.definition_json }}</code></pre>
+    </details>
+    {% endif %}
     {% if r.details %}
     <details>
         <summary style="cursor: pointer; color: var(--blue);">View Output Details</summary>
@@ -36,10 +42,6 @@
 {% else %}
 <div class="card">
     <p>No results yet. Contract is likely pending or running.</p>
-    <details>
-        <summary style="cursor: pointer; color: var(--blue);">View Planned Checks (JSON)</summary>
-        <pre><code class="language-json">{{ contract.checks_json }}</code></pre>
-    </details>
 </div>
 {% endif %}
 
@@ -66,6 +68,14 @@
     {% else %}
     <p>No audit events found for this contract.</p>
     {% endif %}
+</div>
+
+<h2>Planned Checks</h2>
+<div class="card">
+    <details>
+        <summary style="cursor: pointer; color: var(--blue);">View Planned Checks (JSON)</summary>
+        <pre><code class="language-json">{{ contract.checks_json }}</code></pre>
+    </details>
 </div>
 
 <a href="javascript:history.back()">← Back</a>

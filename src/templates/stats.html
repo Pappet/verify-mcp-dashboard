@@ -35,6 +35,13 @@
     </div>
 </div>
 
+<div class="card" style="margin-bottom: 20px;">
+    <h2>Agent Performance (Pass Rate)</h2>
+    <div style="height: 300px;">
+        <canvas id="agentPerformanceChart"></canvas>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -137,5 +144,56 @@
             });
         })
         .catch(err => console.error(err));
+
+    fetch('/api/agent_performance')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error || !data.agents) return;
+
+            // Sort agents by total contracts down
+            data.agents.sort((a, b) => b.total_contracts - a.total_contracts);
+
+            const agentLabels = data.agents.map(a => a.agent_id);
+            const passRateData = data.agents.map(a => a.pass_rate);
+
+            const ctxAgent = document.getElementById('agentPerformanceChart').getContext('2d');
+            new Chart(ctxAgent, {
+                type: 'bar',
+                data: {
+                    labels: agentLabels,
+                    datasets: [{
+                        label: 'Pass Rate (%)',
+                        data: passRateData,
+                        backgroundColor: '#4070f4' // nice blue
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // horizontal bar chart
+                    scales: {
+                        y: { ticks: { color: '#8b8fa3' } },
+                        x: { beginAtZero: true, max: 100, ticks: { color: '#8b8fa3', stepSize: 10 } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const agent = data.agents[context.dataIndex];
+                                    return [
+                                        `Pass Rate: ${agent.pass_rate}%`,
+                                        `Total: ${agent.total_contracts} (${agent.passed} passed, ${agent.failed} failed, ${agent.rejected} rejected)`,
+                                        `Avg Resolution: ${agent.avg_resolution_minutes} min`,
+                                        `Most Common Failure: ${agent.most_common_failure}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(err => console.error("Error fetching agent performance:", err));
 </script>
 {% endblock %}

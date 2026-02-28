@@ -546,6 +546,132 @@ def api_rejected():
     
     return jsonify({"rejected_contracts": contracts})
 
+@app.route('/api/agent_performance')
+def api_agent_performance():
+    try:
+        conn = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 500
+
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    
+    # Base stats per agent
+    cur.execute("""
+        SELECT agent_id,
+               COUNT(*) as total_contracts,
+               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
+               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+               SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+        FROM contracts
+        WHERE agent_id IS NOT NULL AND agent_id != ''
+        GROUP BY agent_id
+    """)
+    agent_rows = cur.fetchall()
+    
+    # Audit events for resolution times and struggle scores
+    cur.execute("""
+        SELECT contract_id,
+               c.agent_id,
+               ae.event_type,
+               ae.created_at,
+               ae.details
+        FROM audit_events ae
+        JOIN contracts c ON ae.contract_id = c.id
+        WHERE c.agent_id IS NOT NULL AND c.agent_id != ''
+        ORDER BY c.agent_id, ae.contract_id, ae.created_at ASC
+    """)
+    audit_rows = cur.fetchall()
+    
+    # Organize audit events by agent and contract
+    # agent_id -> { contract_id: [events] }
+    agent_events = {}
+    for r in audit_rows:
+        aid = r['agent_id']
+        cid = r['contract_id']
+        if aid not in agent_events:
+            agent_events[aid] = {}
+        if cid not in agent_events[aid]:
+            agent_events[aid][cid] = []
+        agent_events[aid][cid].append(dict(r))
+        
+    agents_data = []
+    
+    for row in agent_rows:
+        aid = row['agent_id']
+        total = row['total_contracts']
+        passed = row['passed']
+        failed = row['failed']
+        rejected = row['rejected']
+        
+        completed = passed + failed + rejected
+        pass_rate = 0.0
+        if completed > 0:
+            pass_rate = round((passed / completed) * 100, 1)
+            
+        # Calculate avg resolution and most common failure
+        events_by_contract = agent_events.get(aid, {})
+        
+        total_res_seconds = 0.0
+        resolved_count = 0
+        struggle_scores = {}
+        
+        for cid, events in events_by_contract.items():
+            created_time = None
+            passed_time = None
+            
+            for evt in events:
+                if evt['event_type'] == 'contract_created':
+                    try:
+                        created_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
+                    except Exception:
+                        pass
+                elif evt['event_type'] == 'verification_passed':
+                    try:
+                        passed_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
+                    except Exception:
+                        pass
+                elif evt['event_type'] == 'verification_failed':
+                    if evt['details']:
+                        try:
+                            details_json = json.loads(evt['details'])
+                            if isinstance(details_json, list):
+                                for c in details_json:
+                                    if c.get('status') == 'failed':
+                                        cname = c.get('check', 'Unknown')
+                                        struggle_scores[cname] = struggle_scores.get(cname, 0) + 1
+                        except Exception:
+                            pass
+                            
+            if created_time and passed_time:
+                delta = (passed_time - created_time).total_seconds()
+                if delta > 0:
+                    total_res_seconds += delta
+                    resolved_count += 1
+                    
+        avg_resolution_minutes = 0.0
+        if resolved_count > 0:
+            avg_resolution_minutes = round((total_res_seconds / resolved_count) / 60, 2)
+            
+        most_common_failure = "none"
+        if struggle_scores:
+            most_common_failure = max(struggle_scores.items(), key=lambda x: x[1])[0]
+            
+        agents_data.append({
+            "agent_id": aid,
+            "total_contracts": total,
+            "passed": passed,
+            "failed": failed,
+            "rejected": rejected,
+            "pass_rate": pass_rate,
+            "avg_resolution_minutes": avg_resolution_minutes,
+            "most_common_failure": most_common_failure
+        })
+        
+    conn.close()
+    
+    return jsonify({"agents": agents_data})
+
 @app.route('/api/status')
 def status_endpoint():
     """Gibt den aktuellen Status der Anwendung als JSON zurück."""

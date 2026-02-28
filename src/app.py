@@ -380,6 +380,17 @@ def api_stats_data():
     sorted_struggle = sorted(struggle_scores.items(), key=lambda x: x[1], reverse=True)[:10]
     struggle_list = [{'name': k, 'count': v} for k, v in sorted_struggle]
     
+    # Legacy DB Failing Checks
+    cur.execute("""
+        SELECT check_name as name, COUNT(*) as count 
+        FROM check_results 
+        WHERE status = 'failed' 
+        GROUP BY name 
+        ORDER BY count DESC 
+        LIMIT 10
+    """)
+    failing_checks = [{'name': r['name'], 'count': r['count']} for r in cur.fetchall()]
+    
     conn.close()
     
     return jsonify({

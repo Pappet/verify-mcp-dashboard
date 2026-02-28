@@ -65,7 +65,7 @@ def dashboard():
     cur.execute("SELECT status, COUNT(*) as count FROM contracts GROUP BY status")
     rows = cur.fetchall()
     
-    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rate': 0.0}
+    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rejected': 0, 'rate': 0.0}
     for r in rows:
         st = r['status']
         cnt = r['count']
@@ -73,7 +73,7 @@ def dashboard():
         if st in stats:
             stats[st] += cnt
             
-    completed = stats['passed'] + stats['failed']
+    completed = stats['passed'] + stats['failed'] + stats['rejected']
     if completed > 0:
         stats['rate'] = round((stats['passed'] / completed) * 100, 1)
 
@@ -99,7 +99,7 @@ def api_dashboard():
     cur.execute("SELECT status, COUNT(*) as count FROM contracts GROUP BY status")
     rows = cur.fetchall()
     
-    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rate': 0.0}
+    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rejected': 0, 'rate': 0.0}
     for r in rows:
         st = r['status']
         cnt = r['count']
@@ -107,7 +107,7 @@ def api_dashboard():
         if st in stats:
             stats[st] += cnt
             
-    completed = stats['passed'] + stats['failed']
+    completed = stats['passed'] + stats['failed'] + stats['rejected']
     if completed > 0:
         stats['rate'] = round((stats['passed'] / completed) * 100, 1)
 
@@ -313,10 +313,10 @@ def api_stats_data():
     for r in daily_rows:
         day = r['day']
         if day not in daily_stats:
-            daily_stats[day] = {'passed': 0, 'failed': 0, 'total': 0}
+            daily_stats[day] = {'passed': 0, 'failed': 0, 'rejected': 0, 'total': 0}
         st = r['status']
         cnt = r['count']
-        if st in ['passed', 'failed']:
+        if st in ['passed', 'failed', 'rejected']:
             daily_stats[day][st] += cnt
             daily_stats[day]['total'] += cnt
             
@@ -443,14 +443,17 @@ def contract_detail(contract_id):
     audit_rows = cur.fetchall()
     
     audit_events = []
+    rejection_reason = None
     for row in audit_rows:
         event = dict(row)
+        # Rejection reason aus contract_rejected Event extrahieren
+        if event['event_type'] == 'contract_rejected' and event['details']:
+            rejection_reason = event['details']
         # Check Details extrahieren, um bei Failed direkt den Schuldigen zu sehen
         if event['event_type'] == 'verification_failed' and event['details']:
             try:
                 details_json = json.loads(event['details'])
                 if isinstance(details_json, list) and len(details_json) > 0:
-                    # Nimm die Namen der gefailten Checks (meistens im details-Array)
                     failed_checks = [c.get('check', 'Unknown') for c in details_json if c.get('status') == 'failed']
                     if failed_checks:
                         event['failed_checks_summary'] = ", ".join(failed_checks)
@@ -465,9 +468,83 @@ def contract_detail(contract_id):
     try:
         contract_dict['checks_json'] = json.dumps(json.loads(contract_dict['checks_json']), indent=2)
     except:
+        # Für rejected contracts kann checks_json malformed sein
         pass
 
-    return render_template('detail.html', contract=contract_dict, results=results, audit_events=audit_events)
+    return render_template('detail.html', contract=contract_dict, results=results, 
+                           audit_events=audit_events, rejection_reason=rejection_reason)
+
+@app.route('/rejected')
+def rejected():
+    try:
+        conn = get_db()
+    except FileNotFoundError as e:
+        return render_template('rejected.html', contracts=[], page=1, total_pages=1, error=str(e))
+
+    cur = conn.cursor()
+    
+    search_query = request.args.get('q', '').strip()
+    page = int(request.args.get('page', 1))
+    per_page = 50
+    offset = (page - 1) * per_page
+    
+    query = "SELECT id, description, task, agent_id, checks_json, created_at FROM contracts WHERE status = 'rejected'"
+    count_query = "SELECT COUNT(*) FROM contracts WHERE status = 'rejected'"
+    params = []
+    
+    if search_query:
+        query += " AND (description LIKE ? OR task LIKE ? OR agent_id LIKE ?)"
+        count_query += " AND (description LIKE ? OR task LIKE ? OR agent_id LIKE ?)"
+        params.extend([f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"])
+    
+    cur.execute(count_query, params)
+    total_count = cur.fetchone()[0]
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    
+    query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    params.append(per_page)
+    params.append(offset)
+    cur.execute(query, params)
+    rows = cur.fetchall()
+    
+    # Rejection reasons aus audit_events joinen
+    contracts = []
+    for row in rows:
+        c = dict(row)
+        cur.execute(
+            "SELECT details FROM audit_events WHERE contract_id = ? AND event_type = 'contract_rejected' LIMIT 1",
+            (c['id'],)
+        )
+        reason_row = cur.fetchone()
+        c['rejection_reason'] = reason_row['details'] if reason_row else 'Unknown reason'
+        contracts.append(c)
+    
+    conn.close()
+    
+    return render_template('rejected.html', contracts=contracts, page=page, total_pages=total_pages)
+
+@app.route('/api/rejected')
+def api_rejected():
+    try:
+        conn = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 500
+
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT c.id, c.description, c.task, c.agent_id, c.created_at,
+               ae.details as rejection_reason
+        FROM contracts c
+        LEFT JOIN audit_events ae ON ae.contract_id = c.id AND ae.event_type = 'contract_rejected'
+        WHERE c.status = 'rejected'
+        ORDER BY c.created_at DESC
+        LIMIT 100
+    """)
+    rows = cur.fetchall()
+    contracts = [dict(r) for r in rows]
+    conn.close()
+    
+    return jsonify({"rejected_contracts": contracts})
 
 if __name__ == '__main__':
     # Startet lokal, Debug-Modus an für schnelle Iteration

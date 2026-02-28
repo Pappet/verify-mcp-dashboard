@@ -15,6 +15,15 @@
     <p><strong>Contract ID:</strong> <code>{{ contract.id }}</code></p>
 </div>
 
+{% if rejection_reason %}
+<div class="card" style="border-left: 4px solid var(--rejected); margin-bottom: 20px;">
+    <h2 style="color: var(--rejected);">⛔ Contract Rejected</h2>
+    <p style="margin: 0;">This contract was rejected during creation because the checks definition was invalid.</p>
+    <pre
+        style="margin-top: 12px; white-space: pre-wrap; word-break: break-word;"><code>{{ rejection_reason }}</code></pre>
+</div>
+{% endif %}
+
 <h2>Check Results</h2>
 {% if results %}
 {% for r in results %}
@@ -41,7 +50,11 @@
 {% endfor %}
 {% else %}
 <div class="card">
+    {% if contract.status == 'rejected' %}
+    <p>No check results — this contract was rejected before any checks could run.</p>
+    {% else %}
     <p>No results yet. Contract is likely pending or running.</p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -51,7 +64,7 @@
     <div class="timeline">
         {% for event in audit_events %}
         {% set marker_class = 'passed' if 'passed' in event.event_type else ('failed' if 'failed' in event.event_type
-        else '') %}
+        else ('rejected' if 'rejected' in event.event_type else '')) %}
         <div class="timeline-item {{ marker_class }}">
             <div class="timeline-date">{{ event.created_at[:19].replace('T', ' ') }}</div>
             <div class="timeline-content">

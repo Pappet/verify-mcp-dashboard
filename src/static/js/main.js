@@ -10,6 +10,7 @@ function refreshDashboard() {
             document.querySelector('#stat-total').textContent = data.stats.total;
             document.querySelector('#stat-passed').textContent = data.stats.passed;
             document.querySelector('#stat-failed').textContent = data.stats.failed;
+            document.querySelector('#stat-rejected').textContent = data.stats.rejected;
             document.querySelector('#stat-rate').textContent = data.stats.rate + '%';
 
             // Update Table

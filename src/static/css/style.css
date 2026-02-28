@@ -4,18 +4,19 @@
     --bg-tertiary: #242736;
     --accent-hover: #2a2e3f;
     --border: #2e3247;
-    
+
     --text-primary: #e4e6f0;
     --text-secondary: #8b8fa3;
     --text-muted: #5c6078;
-    
+
     --accent-blue: #6c8cff;
     --accent-blue-dim: #4a62b3;
-    
+
     --success: #4caf84;
     --warning: #e5a54b;
     --error: #e05454;
-    
+    --rejected: #b07cc6;
+
     --font-ui: system-ui, -apple-system, sans-serif;
     --font-mono: "SF Mono", "Cascadia Code", Consolas, monospace;
 }
@@ -48,7 +49,8 @@ nav a {
     transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-nav a:hover, nav a.active {
+nav a:hover,
+nav a.active {
     color: var(--text-primary);
     background-color: var(--bg-tertiary);
 }
@@ -117,7 +119,8 @@ table {
     font-size: 13px;
 }
 
-th, td {
+th,
+td {
     padding: 9px 16px;
     text-align: left;
     border-bottom: 1px solid var(--border);
@@ -140,10 +143,25 @@ tr:hover {
 }
 
 /* Status colors */
-.status-passed { color: var(--success); }
-.status-failed { color: var(--error); }
-.status-running { color: var(--accent-blue); }
-.status-pending { color: var(--warning); }
+.status-passed {
+    color: var(--success);
+}
+
+.status-failed {
+    color: var(--error);
+}
+
+.status-running {
+    color: var(--accent-blue);
+}
+
+.status-pending {
+    color: var(--warning);
+}
+
+.status-rejected {
+    color: var(--rejected);
+}
 
 /* Badges */
 .badge {
@@ -156,10 +174,30 @@ tr:hover {
     display: inline-block;
 }
 
-.bg-passed { background: rgba(76, 175, 132, 0.15); color: var(--success); }
-.bg-failed { background: rgba(224, 84, 84, 0.15); color: var(--error); }
-.bg-running { background: rgba(108, 140, 255, 0.15); color: var(--accent-blue); }
-.bg-pending { background: rgba(229, 165, 75, 0.15); color: var(--warning); }
+.bg-passed {
+    background: rgba(76, 175, 132, 0.15);
+    color: var(--success);
+}
+
+.bg-failed {
+    background: rgba(224, 84, 84, 0.15);
+    color: var(--error);
+}
+
+.bg-running {
+    background: rgba(108, 140, 255, 0.15);
+    color: var(--accent-blue);
+}
+
+.bg-pending {
+    background: rgba(229, 165, 75, 0.15);
+    color: var(--warning);
+}
+
+.bg-rejected {
+    background: rgba(176, 124, 198, 0.15);
+    color: var(--rejected);
+}
 
 /* Forms & Buttons */
 .filter-form {
@@ -169,7 +207,9 @@ tr:hover {
     align-items: center;
 }
 
-input, select, button {
+input,
+select,
+button {
     padding: 8px 12px;
     background: var(--bg-primary);
     border: 1px solid var(--border);
@@ -180,13 +220,15 @@ input, select, button {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-input:focus, select:focus {
+input:focus,
+select:focus {
     outline: none;
     border-color: var(--accent-blue);
     box-shadow: 0 0 0 2px rgba(108, 140, 255, 0.2);
 }
 
-button, .btn {
+button,
+.btn {
     background: var(--accent-blue);
     color: #ffffff;
     cursor: pointer;
@@ -202,21 +244,25 @@ button, .btn {
     font-size: 13px;
 }
 
-button:hover, .btn:hover {
+button:hover,
+.btn:hover {
     background: var(--accent-blue-dim);
 }
 
-button:active, .btn:active {
+button:active,
+.btn:active {
     transform: scale(0.98);
 }
 
-button.btn-secondary, .btn-secondary {
+button.btn-secondary,
+.btn-secondary {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border);
 }
 
-button.btn-secondary:hover, .btn-secondary:hover {
+button.btn-secondary:hover,
+.btn-secondary:hover {
     background: var(--accent-hover);
 }
 
@@ -276,6 +322,11 @@ code {
     background: rgba(224, 84, 84, 0.2);
 }
 
+.timeline-item.rejected::before {
+    border-color: var(--rejected);
+    background: rgba(176, 124, 198, 0.2);
+}
+
 .timeline-date {
     font-size: 12px;
     color: var(--text-muted);
@@ -312,8 +363,13 @@ a:hover {
 
 /* Animations */
 @keyframes flash-new {
-    0% { background-color: rgba(108, 140, 255, 0.15); }
-    100% { background-color: transparent; }
+    0% {
+        background-color: rgba(108, 140, 255, 0.15);
+    }
+
+    100% {
+        background-color: transparent;
+    }
 }
 
 .animate-flash {

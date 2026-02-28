@@ -11,6 +11,8 @@
             <option value="passed" {% if request.args.get('status')=='passed' %}selected{% endif %}>Passed</option>
             <option value="failed" {% if request.args.get('status')=='failed' %}selected{% endif %}>Failed</option>
             <option value="running" {% if request.args.get('status')=='running' %}selected{% endif %}>Running</option>
+            <option value="rejected" {% if request.args.get('status')=='rejected' %}selected{% endif %}>Rejected
+            </option>
         </select>
         <input type="date" name="start_date" placeholder="Start Date" value="{{ request.args.get('start_date', '') }}">
         <input type="date" name="end_date" placeholder="End Date" value="{{ request.args.get('end_date', '') }}">

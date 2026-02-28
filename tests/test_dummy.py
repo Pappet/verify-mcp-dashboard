@@ -5,3 +5,5 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 def test_dummy():
     import app
     assert hasattr(app, 'api_stats_data')
+    assert hasattr(app, 'rejected')
+    assert hasattr(app, 'api_rejected')

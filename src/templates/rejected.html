@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Rejected Contracts</h1>
+
+{% if error %}
+<div class="card bg-failed" style="margin-bottom: 20px;">
+    <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom: 20px;">
+    <p style="color: #a6adc8; font-size: 0.9em; margin-bottom: 15px;">
+        Contracts that were rejected during creation because the checks JSON was malformed,
+        failed meta-validation, or had structural errors. These contracts never ran.
+    </p>
+
+    <form class="filter-form" method="GET" action="{{ url_for('rejected') }}">
+        <input type="text" name="q" placeholder="Search task, description, or agent..."
+            value="{{ request.args.get('q', '') }}">
+        <button type="submit">Search</button>
+        <a href="{{ url_for('rejected') }}" style="align-self: center; margin-left: 10px;">Clear</a>
+    </form>
+
+    {% if contracts %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Task</th>
+                    <th>Agent</th>
+                    <th>Rejection Reason</th>
+                    <th>Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in contracts %}
+                <tr>
+                    <td><code>{{ c.id[:8] }}...</code></td>
+                    <td>
+                        <strong>{{ c.description }}</strong><br>
+                        <small>{{ c.task }}</small>
+                    </td>
+                    <td><code>{{ c.agent_id }}</code></td>
+                    <td>
+                        <span class="rejection-reason">{{ c.rejection_reason[:120] }}{% if c.rejection_reason|length >
+                            120 %}...{% endif %}</span>
+                    </td>
+                    <td>{{ c.created_at[:16].replace('T', ' ') }}</td>
+                    <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}" class="btn">View Details</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination" style="margin-top: 20px; text-align: center;">
+        {% if page > 1 %}
+        <a href="{{ url_for('rejected', q=request.args.get('q', ''), page=page-1) }}" class="btn">&laquo; Previous</a>
+        {% endif %}
+
+        <span style="margin: 0 15px;">Page {{ page }} of {{ total_pages }}</span>
+
+        {% if page < total_pages %} <a href="{{ url_for('rejected', q=request.args.get('q', ''), page=page+1) }}"
+            class="btn">Next &raquo;</a>
+            {% endif %}
+    </div>
+    {% else %}
+    <p>No rejected contracts found. All contracts have valid structure!</p>
+    {% endif %}
+</div>
+{% endblock %}

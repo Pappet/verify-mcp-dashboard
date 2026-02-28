@@ -60,8 +60,8 @@
                     datasets: [{
                         label: 'Pass Rate (%)',
                         data: passRates,
-                        borderColor: '#a6e3a1', // green
-                        backgroundColor: 'rgba(166, 227, 161, 0.2)',
+                        borderColor: '#4caf84', // new success green
+                        backgroundColor: 'rgba(76, 175, 132, 0.2)',
                         fill: true,
                         tension: 0.3
                     }]
@@ -69,11 +69,11 @@
                 options: {
                     responsive: true,
                     scales: {
-                        y: { beginAtZero: true, max: 100, ticks: { color: '#cdd6f4' } },
-                        x: { ticks: { color: '#cdd6f4' } }
+                        y: { beginAtZero: true, max: 100, ticks: { color: '#8b8fa3' } },
+                        x: { ticks: { color: '#8b8fa3' } }
                     },
                     plugins: {
-                        legend: { labels: { color: '#cdd6f4' } }
+                        legend: { labels: { color: '#8b8fa3' } }
                     }
                 }
             });
@@ -90,15 +90,15 @@
                     datasets: [{
                         label: 'Fail Count',
                         data: failData,
-                        backgroundColor: '#f38ba8' // red
+                        backgroundColor: '#e05454' // new error red
                     }]
                 },
                 options: {
                     responsive: true,
                     indexAxis: 'y', // horizontal bar chart
                     scales: {
-                        y: { ticks: { color: '#cdd6f4' } },
-                        x: { beginAtZero: true, ticks: { color: '#cdd6f4', stepSize: 1 } }
+                        y: { ticks: { color: '#8b8fa3' } },
+                        x: { beginAtZero: true, ticks: { color: '#8b8fa3', stepSize: 1 } }
                     },
                     plugins: {
                         legend: { display: false }
@@ -120,15 +120,15 @@
                     datasets: [{
                         label: 'Total Retries',
                         data: struggleData,
-                        backgroundColor: '#f9e2af' // yellow
+                        backgroundColor: '#e5a54b' // new warning yellow
                     }]
                 },
                 options: {
                     responsive: true,
                     indexAxis: 'x',
                     scales: {
-                        y: { beginAtZero: true, ticks: { color: '#cdd6f4', stepSize: 1 } },
-                        x: { ticks: { color: '#cdd6f4' } }
+                        y: { beginAtZero: true, ticks: { color: '#8b8fa3', stepSize: 1 } },
+                        x: { ticks: { color: '#8b8fa3' } }
                     },
                     plugins: {
                         legend: { display: false }

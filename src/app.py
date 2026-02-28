@@ -340,22 +340,22 @@ def api_stats_data():
         passed_time = None
         
         # Parse Dates
-        for e in events:
-            if e['event_type'] == 'contract_created':
+        for evt in events:
+            if evt['event_type'] == 'contract_created':
                 try:
-                    created_time = datetime.fromisoformat(e['created_at'].replace('Z', '+00:00'))
+                    created_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
                 except:
                     pass
-            elif e['event_type'] == 'verification_passed':
+            elif evt['event_type'] == 'verification_passed':
                 try:
-                    passed_time = datetime.fromisoformat(e['created_at'].replace('Z', '+00:00'))
+                    passed_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
                 except:
                     pass
-            elif e['event_type'] == 'verification_failed':
+            elif evt['event_type'] == 'verification_failed':
                 # Parse details for failing checks
-                if e['details']:
+                if evt['details']:
                     try:
-                        details_json = json.loads(e['details'])
+                        details_json = json.loads(evt['details'])
                         if isinstance(details_json, list):
                             for c in details_json:
                                 if c.get('status') == 'failed':

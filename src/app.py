@@ -546,6 +546,24 @@ def api_rejected():
     
     return jsonify({"rejected_contracts": contracts})
 
+@app.route('/api/status')
+def status_endpoint():
+    """Gibt den aktuellen Status der Anwendung als JSON zurück."""
+    db_available = True
+    try:
+        conn = get_db()
+        conn.close()
+    except FileNotFoundError:
+        db_available = False
+
+    return jsonify({
+        "status": "ok",
+        "version": "1.0.0",
+        "app": "verify-mcp-dashboard",
+        "db_available": db_available,
+    })
+
+
 if __name__ == '__main__':
     # Startet lokal, Debug-Modus an für schnelle Iteration
     app.run(host='127.0.0.1', port=5000, debug=True)

@@ -10,9 +10,20 @@
 <div class="card">
     <h2>{{ contract.description }}</h2>
     <p><strong>Task:</strong> {{ contract.task }}</p>
-    <p><strong>Status:</strong> <span class="badge bg-{{ contract.status }}">{{ contract.status.upper() }}</span></p>
-    <p><strong>Created:</strong> {{ contract.created_at.replace('T', ' ') }}</p>
-    <p><strong>Contract ID:</strong> <code>{{ contract.id }}</code></p>
+    <p><strong>Status:</strong> <span class="badge bg-{{ contract.status }}">{{ contract.status.replace('_', '
+            ').upper() }}</span></p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+        <div>
+            <p style="margin: 0;"><strong>Agent Identity:</strong> {% if contract.agent_id %}{{ contract.agent_id }} ({{
+                contract.language }}){% else %}Unknown{% endif %}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Workspace Hash:</strong>
+                <code>{{ contract.workspace_hash or 'None' }}</code></p>
+        </div>
+        <div>
+            <p style="margin: 0;"><strong>Created:</strong> {{ contract.created_at.replace('T', ' ') }}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Contract ID:</strong> <code>{{ contract.id }}</code></p>
+        </div>
+    </div>
 </div>
 
 {% if rejection_reason %}

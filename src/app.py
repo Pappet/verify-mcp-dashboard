@@ -65,7 +65,7 @@ def dashboard():
     cur.execute("SELECT status, COUNT(*) as count FROM contracts GROUP BY status")
     rows = cur.fetchall()
     
-    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rejected': 0, 'rate': 0.0}
+    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rejected': 0, 'review_required': 0, 'rate': 0.0}
     for r in rows:
         st = r['status']
         cnt = r['count']
@@ -79,7 +79,7 @@ def dashboard():
 
     # Letzte 10 aktive/neue Contracts
     cur.execute("""
-        SELECT id, description, task, status, created_at 
+        SELECT id, description, task, status, agent_id, language, workspace_hash, created_at 
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
@@ -99,7 +99,7 @@ def api_dashboard():
     cur.execute("SELECT status, COUNT(*) as count FROM contracts GROUP BY status")
     rows = cur.fetchall()
     
-    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rejected': 0, 'rate': 0.0}
+    stats = {'total': 0, 'passed': 0, 'failed': 0, 'running': 0, 'pending': 0, 'rejected': 0, 'review_required': 0, 'rate': 0.0}
     for r in rows:
         st = r['status']
         cnt = r['count']
@@ -112,7 +112,7 @@ def api_dashboard():
         stats['rate'] = round((stats['passed'] / completed) * 100, 1)
 
     cur.execute("""
-        SELECT id, description, task, status, created_at 
+        SELECT id, description, task, status, agent_id, language, workspace_hash, created_at 
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
@@ -134,7 +134,7 @@ def history():
     per_page = 50
     offset = (page - 1) * per_page
     
-    query = "SELECT id, description, task, status, created_at FROM contracts WHERE 1=1"
+    query = "SELECT id, description, task, status, agent_id, language, workspace_hash, created_at FROM contracts WHERE 1=1"
     count_query = "SELECT COUNT(*) FROM contracts WHERE 1=1"
     params = []
     
@@ -259,38 +259,43 @@ def api_schema():
             {"id": "value_in_range", "name": "Value In Range", "fields": [{"name": "value", "type": "number"}, {"name": "min", "type": "number"}, {"name": "max", "type": "number"}]},
             {"id": "diff_size_limit", "name": "Diff Size Limit", "fields": [{"name": "max_lines", "type": "number"}]},
             {"id": "assertion", "name": "Assertion", "fields": [{"name": "condition", "type": "string"}]},
-            {"id": "python_type_check", "name": "Python Type Check", "fields": [{"name": "path", "type": "string"}]},
-            {"id": "pytest_result", "name": "Pytest Result", "fields": [{"name": "path", "type": "string"}]},
+            {"id": "python_type_check", "name": "Python Type Check", "fields": [{"name": "paths", "type": "array"}]},
+            {"id": "pytest_result", "name": "Pytest Result", "fields": [{"name": "test_path", "type": "string"}]},
             {"id": "python_import_graph", "name": "Python Import Graph", "fields": [{"name": "path", "type": "string"}, {"name": "forbidden_imports", "type": "array"}]},
-            {"id": "json_registry_consistency", "name": "JSON Registry Consistency", "fields": [{"name": "registry_path", "type": "string"}, {"name": "schema_path", "type": "string"}]}
+            {"id": "json_registry_consistency", "name": "JSON Registry Consistency", "fields": [{"name": "registry_path", "type": "string"}, {"name": "schema_path", "type": "string"}]},
+            {"id": "ast_query", "name": "AST Query", "fields": [{"name": "path", "type": "string"}, {"name": "query", "type": "string"}]}
         ],
         "severities": ["info", "warning", "error"]
     }
     return jsonify(schema)
 
-@app.route('/api/templates', methods=['GET', 'POST'])
+@app.route('/api/templates', methods=['GET'])
 def api_templates():
-    db_path = get_dashboard_db_path()
-    conn = sqlite3.connect(db_path)
+    try:
+        conn = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 500
+        
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
     
-    if request.method == 'POST':
-        data = request.json
-        name = data.get('name', 'Unnamed Template')
-        payload = json.dumps(data.get('payload', {}))
-        
-        cur.execute("INSERT INTO templates (name, payload) VALUES (?, ?)", (name, payload))
-        conn.commit()
-        conn.close()
-        return jsonify({"success": True, "message": "Template saved"}), 201
-        
-    else:
-        cur.execute("SELECT * FROM templates ORDER BY created_at DESC")
-        rows = cur.fetchall()
-        templates = [{"id": r["id"], "name": r["name"], "payload": json.loads(r["payload"]), "created_at": r["created_at"]} for r in rows]
-        conn.close()
-        return jsonify({"templates": templates})
+    cur.execute("SELECT * FROM templates ORDER BY created_at DESC")
+    rows = cur.fetchall()
+    templates = []
+    for r in rows:
+        payload = {
+            "task": r["description"],
+            "description": f"Template: {r['name']}",
+            "checks": json.loads(r["checks_json"]) if r["checks_json"] else []
+        }
+        templates.append({
+            "id": r["id"],
+            "name": r["name"],
+            "payload": payload,
+            "created_at": r["created_at"]
+        })
+    conn.close()
+    return jsonify({"templates": templates})
 
 @app.route('/api/stats_data')
 def api_stats_data():
@@ -558,20 +563,22 @@ def api_agent_performance():
     
     # Base stats per agent
     cur.execute("""
-        SELECT agent_id,
-               COUNT(*) as total_contracts,
-               SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END) as passed,
-               SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
-               SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
-        FROM contracts
-        WHERE agent_id IS NOT NULL AND agent_id != ''
-        GROUP BY agent_id
+        SELECT c.agent_id,
+               a.trust_score,
+               COUNT(c.id) as total_contracts,
+               SUM(CASE WHEN c.status = 'passed' THEN 1 ELSE 0 END) as passed,
+               SUM(CASE WHEN c.status = 'failed' THEN 1 ELSE 0 END) as failed,
+               SUM(CASE WHEN c.status = 'rejected' THEN 1 ELSE 0 END) as rejected
+        FROM contracts c
+        LEFT JOIN agents a ON c.agent_id = a.id
+        WHERE c.agent_id IS NOT NULL AND c.agent_id != ''
+        GROUP BY c.agent_id
     """)
     agent_rows = cur.fetchall()
     
     # Audit events for resolution times and struggle scores
     cur.execute("""
-        SELECT contract_id,
+        SELECT ae.contract_id,
                c.agent_id,
                ae.event_type,
                ae.created_at,
@@ -599,6 +606,7 @@ def api_agent_performance():
     
     for row in agent_rows:
         aid = row['agent_id']
+        trust_score = row['trust_score'] if row['trust_score'] is not None else 100.0
         total = row['total_contracts']
         passed = row['passed']
         failed = row['failed']
@@ -665,7 +673,8 @@ def api_agent_performance():
             "rejected": rejected,
             "pass_rate": pass_rate,
             "avg_resolution_minutes": avg_resolution_minutes,
-            "most_common_failure": most_common_failure
+            "most_common_failure": most_common_failure,
+            "trust_score": round(trust_score, 1)
         })
         
     conn.close()

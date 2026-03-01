@@ -6,10 +6,10 @@ A modern, responsive dashboard to monitor, manage, and interact with the [Verify
 
 The Verify MCP Server tracks "verification contracts" (checks that ensure AI agents write correct code before committing). This dashboard visualizes the data from the verify MCP server's SQLite database, offering:
 
-- **Dashboard overview**: High-level statistics, success rates, and recent active contracts.
-- **Contract History**: Pagination and filtering of all historical verification contracts.
+- **Dashboard overview**: High-level statistics, success rates, agent trust scores, and recent active contracts.
+- **Contract History**: Pagination and filtering of all historical verification contracts, including agent identities.
 - **Anomalies Detection**: Identify "orphaned" (stuck in pending/running) or "abandoned" (failed and untouched) contracts.
-- **Contract Builder & Templates**: A visual UI to build new contracts and save successful ones as reusable templates.
+- **Contract Builder**: A visual UI to build new contracts, integrating available server templates directly from the MCP server.
 - **Detailed Audit Trails**: View the exact timeline of a contract, see which checks failed, and how the agent recovered.
 
 ## Prerequisites
@@ -46,8 +46,8 @@ The Verify MCP Server tracks "verification contracts" (checks that ensure AI age
 
 ## Data Storage
 
-- The dashboard reads from `verify.db` (usually managed by the MCP server).
-- It creates and uses its own local database `dashboard_local.db` in the same directory to store user-defined templates.
+- The dashboard reads entirely from `verify.db` (usually managed by the MCP server).
+- It queries the `templates` table directly from the MCP server, providing always-up-to-date built-in and promoted templates.
 
 ## Contribution
 

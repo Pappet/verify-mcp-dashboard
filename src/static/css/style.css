@@ -163,6 +163,10 @@ tr:hover {
     color: var(--rejected);
 }
 
+.status-review_required {
+    color: var(--warning);
+}
+
 /* Badges */
 .badge {
     padding: 4px 8px;
@@ -197,6 +201,11 @@ tr:hover {
 .bg-rejected {
     background: rgba(176, 124, 198, 0.15);
     color: var(--rejected);
+}
+
+.bg-review_required {
+    background: rgba(229, 165, 75, 0.15);
+    color: var(--warning);
 }
 
 /* Forms & Buttons */

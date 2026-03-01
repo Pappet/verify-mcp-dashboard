@@ -91,7 +91,7 @@
     }
 
     function loadTemplate() {
-        const id = parseInt(document.getElementById('templateSelect').value);
+        const id = document.getElementById('templateSelect').value;
         if (!id) return;
         const template = templates.find(t => t.id === id);
         if (!template) return;

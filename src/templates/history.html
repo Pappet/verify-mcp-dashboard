@@ -12,6 +12,8 @@
             <option value="failed" {% if request.args.get('status')=='failed' %}selected{% endif %}>Failed</option>
             <option value="running" {% if request.args.get('status')=='running' %}selected{% endif %}>Running</option>
             <option value="pending" {% if request.args.get('status')=='pending' %}selected{% endif %}>Pending</option>
+            <option value="review_required" {% if request.args.get('status')=='review_required' %}selected{% endif %}>
+                Review Req</option>
             <option value="rejected" {% if request.args.get('status')=='rejected' %}selected{% endif %}>Rejected
             </option>
         </select>
@@ -24,6 +26,7 @@
     <table>
         <tr>
             <th>Task</th>
+            <th>Identity</th>
             <th>Status</th>
             <th>Date</th>
             <th>Action</th>
@@ -31,7 +34,9 @@
         {% for c in contracts %}
         <tr>
             <td><strong>{{ c.description }}</strong><br><small>{{ c.task }}</small></td>
-            <td><span class="badge bg-{{ c.status }}">{{ c.status.upper() }}</span></td>
+            <td>{% if c.agent_id %}{{ c.agent_id }}<br><small>{{ c.language }}</small>{% else %}<em>Unknown</em>{% endif
+                %}</td>
+            <td><span class="badge bg-{{ c.status }}">{{ c.status.replace('_', ' ').upper() }}</span></td>
             <td>{{ c.created_at[:16].replace('T', ' ') }}</td>
             <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}">View Details</a></td>
         </tr>

@@ -17,13 +17,8 @@ The Verify MCP Dashboard is a lightweight frontend application built using **Fla
 
 1. **`verify.db` (Read-only for dashboard)**
    - Managed by the external `verify-mcp-server`.
-   - Contains exactly what the Agents log: `contracts`, `check_results`, and `audit_events`.
-   - The dashboard uses this to generate stats, history, and anomaly reports.
-   
-2. **`dashboard_local.db` (Read-write)**
-   - Managed entirely by the dashboard.
-   - Stores `templates` (saved combinations of Contract checks).
-   - Located in the same folder as `verify.db` (e.g., `~/.local/share/verify-mcp/`).
+   - Contains contracts, check results, agent metadata, trust scores, and audit events.
+   - The dashboard uses this to generate stats, history, templates, and anomaly reports.
 
 ### Core Components
 
@@ -34,9 +29,9 @@ The Verify MCP Dashboard is a lightweight frontend application built using **Fla
 ### Key Workflows
 
 - **Monitoring**: The `/` and `/history` routes read directly from `contracts` to list what agents are doing.
-- **Analytics**: The `/api/stats_data` route aggregates data for Chart.js to show pass/fail rates over time and identifies the "Top 10 Struggling Checks".
-- **Anomaly Detection**: The `/anomalies` route looks for contracts stuck in `pending`/`running` for > 2 hours, or `failed` contracts untouched for > 4 hours, acting as a human oversight mechanism.
-- **Contract Templating**: The UI at `/builder` uses `/api/templates` to read/write templates from the local dashboard database, serializing the JSON payload into SQLite.
+- **Analytics**: The `/api/stats_data` and `/api/agent_performance` routes aggregate data for Chart.js to show pass/fail rates, agent trust scores, and identify struggling checks.
+- **Anomaly Detection**: The `/anomalies` route looks for contracts stuck in `pending`/`running`, or `failed` contracts untouched for hours. It also supports the new `review_required` statuses.
+- **Contract Templating**: The UI at `/builder` uses `/api/templates` to read templates directly from the server's `verify.db`.
 
 ## Future Expansion
 

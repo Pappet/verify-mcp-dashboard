@@ -1,5 +1,14 @@
 # Project Overview
 
+## What it is?
+The Verify MCP Dashboard is a modern, responsive web application for monitoring, managing, and interacting with the Verify MCP Server. It provides visual insights into AI agent verification contracts, helping track testing history and identify anomalies during development workflows.
+
+## Project Stats
+- **Version**: 1.0.0
+- **Status**: Active / In Development
+- **Tech Stack**: Python (Flask), HTML/CSS/JS (Bootstrap + Chart.js)
+- **Database**: SQLite
+
 ## Architecture
 
 The Verify MCP Dashboard is a lightweight frontend application built using **Flask** and **Jinja2**. It connects directly to SQLite databases to present an interactive UI without requiring a complex backend setup or ORM.
@@ -33,3 +42,18 @@ The Verify MCP Dashboard is a lightweight frontend application built using **Fla
 
 - The system could add polling or WebSockets for real-time updates as the DB changes, currently, it relies on manual page reloads.
 - Additional anomaly rules could be added to catch other problematic agent behaviors (like excessive retries).
+
+## Dependencies and their purpose
+
+- **Flask** (3.0.0): The core web framework used to run the dashboard backend and serve routes/APIs.
+- **Jinja2** (3.1.2): Template engine used by Flask to generate dynamic HTML content.
+- **Werkzeug** (3.0.1): WSGI web application library underlying Flask, handling routing, and request/response objects.
+- **mypy** (1.19.1): Static type checker for Python to guarantee type safety in the codebase.
+- **pytest** (9.0.2): Testing framework to run the automated Python tests in `tests/`.
+- **types-Flask** (1.1.6): Type hints for Flask, assisting `mypy` in checking Flask-related code.
+
+## Additional References
+
+- [Verify MCP Server GitHub Repository](https://github.com/Pappet/verify-mcp-server)
+- [Flask Documentation](https://flask.palletsprojects.com/)
+- [Chart.js Documentation](https://www.chartjs.org/docs/latest/)

@@ -1,6 +1,6 @@
 Flask==3.0.0
 Jinja2==3.1.2
 Werkzeug==3.0.1
-mypy
-pytest
-types-Flask
+mypy==1.19.1
+pytest==9.0.2
+types-Flask==1.1.6

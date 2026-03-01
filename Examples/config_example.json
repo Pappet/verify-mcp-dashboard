@@ -1,0 +1,17 @@
+{
+  "name": "Example Test Suite Output",
+  "task": "Test a simple python function",
+  "checks": [
+    {
+      "name": "basic_pytest",
+      "severity": "error",
+      "check_type": {
+        "type": "pytest_result",
+        "test_path": "tests/",
+        "min_passed": 1,
+        "max_failures": 0,
+        "working_dir": "."
+      }
+    }
+  ]
+}

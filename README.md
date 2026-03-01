@@ -48,3 +48,17 @@ The Verify MCP Server tracks "verification contracts" (checks that ensure AI age
 
 - The dashboard reads from `verify.db` (usually managed by the MCP server).
 - It creates and uses its own local database `dashboard_local.db` in the same directory to store user-defined templates.
+
+## Contribution
+
+Contributions are welcome! If you'd like to improve the dashboard or add new features:
+1. Fork the repository.
+2. Create your feature branch (`git checkout -b feature/my-new-feature`).
+3. Commit your changes (`git commit -am 'Add some feature'`).
+4. Ensure all code passes the Verify Contract checks before committing.
+5. Push to the branch (`git push origin feature/my-new-feature`).
+6. Open a new Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

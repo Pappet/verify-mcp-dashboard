@@ -16,8 +16,13 @@
         <div>
             <p style="margin: 0;"><strong>Agent Identity:</strong> {% if contract.agent_id %}{{ contract.agent_id }} ({{
                 contract.language }}){% else %}Unknown{% endif %}</p>
+<<<<<<< HEAD
             <p style="margin: 5px 0 0 0;"><strong>Project:</strong> {{ contract.project_name }}<br>
                 <small>Hash: <code>{{ contract.workspace_hash or 'None' }}</code></small>
+=======
+            <p style="margin: 5px 0 0 0;"><strong>Workspace Hash:</strong>
+                <code>{{ contract.workspace_hash or 'None' }}</code>
+>>>>>>> 9b309eb (style: use data-bg attributes instead of mustache tags for css classes to support verify-mcp-server css_html_consistency check)
             </p>
         </div>
         <div>

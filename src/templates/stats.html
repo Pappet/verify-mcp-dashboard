@@ -42,6 +42,13 @@
     </div>
 </div>
 
+<div class="card" style="margin-bottom: 20px;">
+    <h2>Project Activity & Pass Rate</h2>
+    <div style="height: 300px;">
+        <canvas id="projectStatsChart"></canvas>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -142,6 +149,62 @@
                     }
                 }
             });
+
+            // Prepare Project Stats data
+            if (data.project_stats) {
+                const projectLabels = Object.keys(data.project_stats);
+                const projectTotalData = projectLabels.map(p => data.project_stats[p].total);
+                const projectPassData = projectLabels.map(p => {
+                    const total = data.project_stats[p].total;
+                    return total > 0 ? ((data.project_stats[p].passed / total) * 100).toFixed(1) : 0;
+                });
+
+                const ctxProject = document.getElementById('projectStatsChart').getContext('2d');
+                new Chart(ctxProject, {
+                    type: 'bar',
+                    data: {
+                        labels: projectLabels,
+                        datasets: [
+                            {
+                                label: 'Total Contracts',
+                                data: projectTotalData,
+                                backgroundColor: '#4070f4',
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Pass Rate (%)',
+                                data: projectPassData,
+                                type: 'line',
+                                borderColor: '#4caf84',
+                                backgroundColor: '#4caf84',
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { ticks: { color: '#8b8fa3' } },
+                            y: {
+                                type: 'linear', display: true, position: 'left',
+                                ticks: { color: '#8b8fa3', stepSize: 1 },
+                                title: { display: true, text: 'Total Contracts', color: '#8b8fa3' }
+                            },
+                            y1: {
+                                type: 'linear', display: true, position: 'right',
+                                min: 0, max: 100,
+                                grid: { drawOnChartArea: false },
+                                ticks: { color: '#4caf84' },
+                                title: { display: true, text: 'Pass Rate (%)', color: '#4caf84' }
+                            }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#8b8fa3' } }
+                        }
+                    }
+                });
+            }
         })
         .catch(err => console.error(err));
 

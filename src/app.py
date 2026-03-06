@@ -135,7 +135,7 @@ def dashboard():
 
     # Letzte 10 aktive/neue Contracts
     cur.execute("""
-        SELECT id, description, task, status, agent_id, language, workspace_hash, created_at 
+        SELECT id, description, task, status, agent_id, language, checks_json, workspace_hash, created_at 
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
@@ -176,7 +176,7 @@ def api_dashboard():
         stats['rate'] = round((stats['passed'] / completed) * 100, 1)
 
     cur.execute("""
-        SELECT id, description, task, status, agent_id, language, workspace_hash, created_at 
+        SELECT id, description, task, status, agent_id, language, checks_json, workspace_hash, created_at 
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
@@ -205,7 +205,7 @@ def history():
     per_page = 50
     offset = (page - 1) * per_page
     
-    query = "SELECT id, description, task, status, agent_id, language, workspace_hash, created_at FROM contracts WHERE 1=1"
+    query = "SELECT id, description, task, status, agent_id, language, checks_json, workspace_hash, created_at FROM contracts WHERE 1=1"
     count_query = "SELECT COUNT(*) FROM contracts WHERE 1=1"
     params = []
     
@@ -283,9 +283,13 @@ def anomalies():
     orphaned = []
     abandoned = []
     
+    projects_map = get_projects_map()
+    
     for c in contracts:
         status = c['status']
         cid = c['id']
+        c_dict = dict(c)
+        c_dict['project_name'] = resolve_project_name(c_dict, projects_map)
         
         try:
             created_at = datetime.fromisoformat(c['created_at'].replace('Z', '+00:00')).replace(tzinfo=None)
@@ -295,7 +299,7 @@ def anomalies():
         if status in ('pending', 'running'):
             delta = (now - created_at).total_seconds() / 3600
             if delta > ORPHAN_THRESHOLD_HOURS:
-                orphaned.append(dict(c))
+                orphaned.append(c_dict)
                 
         elif status == 'failed':
             last_event_str = last_event_times.get(cid, c['created_at'])
@@ -306,7 +310,7 @@ def anomalies():
                 
             delta = (now - last_time).total_seconds() / 3600
             if delta > ABANDONED_THRESHOLD_HOURS:
-                abandoned.append(dict(c))
+                abandoned.append(c_dict)
                 
     conn.close()
     
@@ -474,13 +478,36 @@ def api_stats_data():
     """)
     failing_checks = [{'name': r['name'], 'count': r['count']} for r in cur.fetchall()]
     
+    # Project Statistics
+    cur.execute("SELECT status, checks_json, workspace_hash FROM contracts")
+    all_contracts = cur.fetchall()
+    
+    projects_map = get_projects_map()
+    project_stats = {}
+    
+    for r in all_contracts:
+        c_dict = dict(r)
+        pname = resolve_project_name(c_dict, projects_map)
+        st = c_dict['status']
+        
+        if pname not in project_stats:
+            project_stats[pname] = {'passed': 0, 'failed': 0, 'rejected': 0, 'total': 0}
+            
+        if st in ['passed', 'failed', 'rejected']:
+            project_stats[pname][st] += 1
+            project_stats[pname]['total'] += 1
+            
+    # Sort project_stats by total volume descending
+    sorted_project_stats = dict(sorted(project_stats.items(), key=lambda item: item[1]['total'], reverse=True))
+    
     conn.close()
     
     return jsonify({
         "daily": daily_stats,
-        "failing_checks": failing_checks,
+        "avg_resolution_minutes": avg_resolution_minutes,
         "struggle_scores": struggle_list,
-        "avg_resolution_minutes": avg_resolution_minutes
+        "failing_checks": failing_checks,
+        "project_stats": sorted_project_stats
     })
 
 @app.route('/contract/<contract_id>')

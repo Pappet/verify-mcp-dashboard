@@ -238,6 +238,9 @@
                     plugins: { legend: { display: false } }
                 }
             });
+        } else {
+            const container = document.getElementById('struggleChart').parentElement;
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-secondary);font-size:0.95em;">No retry data available yet</div>';
         }
     }
 

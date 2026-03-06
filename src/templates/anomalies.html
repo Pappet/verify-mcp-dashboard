@@ -21,10 +21,10 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Project</th>
                     <th>Task</th>
+                    <th>Project</th>
                     <th>Status</th>
-                    <th>Created At</th>
+                    <th>Date</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -32,8 +32,8 @@
                 {% for c in orphaned %}
                 <tr>
                     <td><code>{{ c.id[:8] }}...</code></td>
-                    <td>{{ c.project_name }}</td>
                     <td>{{ c.task }}</td>
+                    <td>{{ c.project_name }}</td>
                     <td><span class="badge" data-bg="{{ c.status }}">{{ c.status.upper() }}</span></td>
                     <td>{{ c.created_at[:19].replace('T', ' ') }}</td>
                     <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}" class="btn">View Details</a></td>
@@ -59,9 +59,9 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Project</th>
                     <th>Task</th>
-                    <th>Created At</th>
+                    <th>Project</th>
+                    <th>Date</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -69,8 +69,8 @@
                 {% for c in abandoned %}
                 <tr>
                     <td><code>{{ c.id[:8] }}...</code></td>
-                    <td>{{ c.project_name }}</td>
                     <td>{{ c.task }}</td>
+                    <td>{{ c.project_name }}</td>
                     <td>{{ c.created_at[:19].replace('T', ' ') }}</td>
                     <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}" class="btn">View Details</a></td>
                 </tr>

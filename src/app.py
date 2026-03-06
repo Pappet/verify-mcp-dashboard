@@ -505,7 +505,7 @@ def api_stats_data():
     return jsonify({
         "daily": daily_stats,
         "avg_resolution_minutes": avg_resolution_minutes,
-        "struggling_checks": struggle_list,
+        "struggle_scores": struggle_list,
         "failing_checks": failing_checks,
         "project_stats": sorted_project_stats
     })

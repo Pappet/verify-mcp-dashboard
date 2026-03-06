@@ -59,10 +59,45 @@ def get_projects_map():
             pass
     return {}
 
-def resolve_project_name(workspace_hash, projects_map):
-    if not workspace_hash:
-        return "Unknown Project"
-    return projects_map.get(workspace_hash, f"Project ({workspace_hash[:8]})")
+def extract_project_path(checks_json_str):
+    if not checks_json_str:
+        return None
+    try:
+        checks = json.loads(checks_json_str)
+        if isinstance(checks, list):
+            for chk in checks:
+                ct = chk.get('check_type', {})
+                wd = ct.get('working_dir')
+                if wd and isinstance(wd, str) and wd.startswith('/'):
+                    return wd
+                p = ct.get('path')
+                if p and isinstance(p, str) and p.startswith('/'):
+                    return os.path.dirname(p)
+                paths = ct.get('paths')
+                if paths and isinstance(paths, list) and len(paths) > 0:
+                    p = paths[0]
+                    if isinstance(p, str) and p.startswith('/'):
+                        return os.path.dirname(p)
+    except Exception:
+        pass
+    return None
+
+def resolve_project_name(contract_dict, projects_map):
+    path = extract_project_path(contract_dict.get('checks_json'))
+    if path:
+        curr = path
+        while curr != '/' and curr != '':
+            if curr in projects_map:
+                return projects_map[curr]
+            curr = os.path.dirname(curr)
+        base = os.path.basename(path)
+        if base:
+            return base
+            
+    hash_val = contract_dict.get('workspace_hash')
+    if hash_val:
+        return projects_map.get(hash_val, f"Workspace ({hash_val[:8]})")
+    return "Unknown Project"
 
 def get_db():
     db_path = get_db_path()
@@ -110,7 +145,7 @@ def dashboard():
     active_contracts = []
     for r in rows:
         c = dict(r)
-        c['project_name'] = resolve_project_name(c.get('workspace_hash'), projects_map)
+        c['project_name'] = resolve_project_name(c, projects_map)
         active_contracts.append(c)
         
     conn.close()
@@ -150,7 +185,7 @@ def api_dashboard():
     active_contracts = []
     for r in cur.fetchall():
         c = dict(r)
-        c['project_name'] = resolve_project_name(c.get('workspace_hash'), projects_map)
+        c['project_name'] = resolve_project_name(c, projects_map)
         active_contracts.append(c)
         
     conn.close()
@@ -208,7 +243,7 @@ def history():
     contracts = []
     for r in cur.fetchall():
         c = dict(r)
-        c['project_name'] = resolve_project_name(c.get('workspace_hash'), projects_map)
+        c['project_name'] = resolve_project_name(c, projects_map)
         contracts.append(c)
         
     conn.close()
@@ -520,7 +555,7 @@ def contract_detail(contract_id):
         pass
 
     projects_map = get_projects_map()
-    contract_dict['project_name'] = resolve_project_name(contract_dict.get('workspace_hash'), projects_map)
+    contract_dict['project_name'] = resolve_project_name(contract_dict, projects_map)
 
     return render_template('detail.html', contract=contract_dict, results=results, 
                            audit_events=audit_events, rejection_reason=rejection_reason)
@@ -563,7 +598,7 @@ def rejected():
     contracts = []
     for row in rows:
         c = dict(row)
-        c['project_name'] = resolve_project_name(c.get('workspace_hash'), projects_map)
+        c['project_name'] = resolve_project_name(c, projects_map)
         cur.execute(
             "SELECT details FROM audit_events WHERE contract_id = ? AND event_type = 'contract_rejected' LIMIT 1",
             (c['id'],)
@@ -599,7 +634,7 @@ def api_rejected():
     contracts = []
     for r in rows:
         c = dict(r)
-        c['project_name'] = resolve_project_name(c.get('workspace_hash'), projects_map)
+        c['project_name'] = resolve_project_name(c, projects_map)
         contracts.append(c)
         
     conn.close()

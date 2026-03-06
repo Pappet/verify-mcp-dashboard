@@ -106,6 +106,7 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+.mypy_cache/
 
 # Project planning / AI tasks
 .planning/

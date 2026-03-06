@@ -1,0 +1,26 @@
+# Missing Metrics Implementation Plan
+
+- [x] **Feature 1: Project Identification (Workspace Mapping)**
+    - Implement a way to display human-readable Project Names instead of just `workspace_hash` on the dashboard and history.
+
+- [ ] **Feature 2: Template Usage & Effectiveness**
+    - Add metrics for most popular templates and their success rates over time.
+
+- [ ] **Feature 3: Agent Trust Score Analytics**
+    - Display a timeline/history chart of agent `trust_score` fluctuations.
+    - Track and show penalty triggers (Trial-and-Error or Flakiness).
+
+- [ ] **Feature 4: "Quick Check" Audit Logs**
+    - Integrate `QuickCheckRun` events from `audit_events`.
+    - Create a separate feed or widget for ad-hoc quick checks.
+
+- [ ] **Feature 5: Check Duration & Bottlenecks**
+    - Aggregate `duration_ms` from `check_results`.
+    - Identify the slowest checks and calculate the average suite execution time.
+
+- [ ] **Feature 6: Retry Counts & Failure Paths**
+    - Calculate the average number of retries (`verification_failed` events) before a contract passes.
+    - Measure the abandonment rate after N failures.
+
+- [ ] **Feature 7: Hotspots by Workspace**
+    - Group failing contracts by project/workspace to show which local projects represent the hardest challenges for agents.

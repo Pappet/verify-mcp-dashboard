@@ -2,50 +2,80 @@
 
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    /* Add any stats-specific layout adjustments here if needed */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
 <h1>Statistics & Insights</h1>
 
+<!-- KPI Section (Row 1) -->
 <div class="card" style="margin-bottom: 20px;">
     <h2>Global Metrics</h2>
     <div class="stats-grid">
         <div class="stat-box">
             <h3>Avg Time-to-Resolution</h3>
             <div class="value" id="kpi-resolution">-</div>
-            <div style="font-size: 0.8em; color: #a6adc8;">Minutes (Create -> Passed)</div>
+            <div style="font-size: 0.8em; color: var(--text-secondary);">Minutes (Create -> Passed)</div>
+        </div>
+        <div class="stat-box">
+            <h3>Total Contracts</h3>
+            <div class="value" id="kpi-total">-</div>
+            <div style="font-size: 0.8em; color: var(--text-secondary);">Across all projects</div>
+        </div>
+        <div class="stat-box">
+            <h3>Global Pass Rate</h3>
+            <div class="value" id="kpi-pass-rate" class="status-passed">-</div>
+            <div style="font-size: 0.8em; color: var(--text-secondary);">Of completed contracts</div>
         </div>
     </div>
 </div>
 
-<div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 20px;">
-    <div class="card">
-        <h2>Pass Rate Over Time</h2>
+<!-- Core Trends (Row 2) -->
+<div class="card" style="margin-bottom: 20px;">
+    <h2>Pass Rate Over Time</h2>
+    <div class="chart-container">
         <canvas id="passRateChart"></canvas>
     </div>
+</div>
 
-    <div class="card">
-        <h2>Most Frequent Failing Checks (Legacy DB)</h2>
-        <canvas id="failingChecksChart"></canvas>
+<!-- Diagnostics (Row 3) -->
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
+    <div class="card" style="margin-bottom: 0;">
+        <h2>Most Frequent Failing Checks</h2>
+        <div class="chart-container" style="height: 250px;">
+            <canvas id="failingChecksChart"></canvas>
+        </div>
     </div>
 
-    <div class="card">
-        <h2>Agent Struggle Score (Retry Frequency)</h2>
-        <canvas id="struggleChart"></canvas>
+    <div class="card" style="margin-bottom: 0;">
+        <h2>Agent Struggle Score (Retries)</h2>
+        <div class="chart-container" style="height: 250px;">
+            <canvas id="struggleChart"></canvas>
+        </div>
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 20px;">
-    <h2>Agent Performance (Pass Rate)</h2>
-    <div style="height: 300px;">
-        <canvas id="agentPerformanceChart"></canvas>
+<!-- Performance (Row 4) -->
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 20px;">
+    <div class="card" style="margin-bottom: 0;">
+        <h2>Agent Performance (Pass Rate)</h2>
+        <div class="chart-container">
+            <canvas id="agentPerformanceChart"></canvas>
+        </div>
     </div>
-</div>
 
-<div class="card" style="margin-bottom: 20px;">
-    <h2>Project Activity & Pass Rate</h2>
-    <div style="height: 300px;">
-        <canvas id="projectStatsChart"></canvas>
+    <div class="card" style="margin-bottom: 0;">
+        <h2>Project Activity & Health</h2>
+        <div class="chart-container">
+            <canvas id="projectStatsChart"></canvas>
+        </div>
     </div>
 </div>
 
@@ -53,211 +83,297 @@
 
 {% block scripts %}
 <script>
-    fetch('/api/stats_data')
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) return;
+    // --- Chart Defaults ---
+    Chart.defaults.color = '#8b8fa3';
+    Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
 
-            // Prepare Daily Stats data
-            const labels = Object.keys(data.daily);
-            const passRates = labels.map(day => {
-                const total = data.daily[day].total;
-                if (total === 0) return 0;
-                return (data.daily[day].passed / total) * 100;
+    // --- Colors matching CSS variables ---
+    const colors = {
+        success: '#4caf84',
+        successBg: 'rgba(76, 175, 132, 0.2)',
+        error: '#e05454',
+        warning: '#e5a54b',
+        blue: '#6c8cff',
+        blueBg: 'rgba(108, 140, 255, 0.2)',
+        textMut: '#8b8fa3',
+        grid: 'rgba(46, 50, 71, 0.5)'
+    };
+
+    // --- Common Chart Options ---
+    const commonScales = {
+        x: { ticks: { color: colors.textMut }, grid: { color: colors.grid, drawBorder: false } },
+        y: { ticks: { color: colors.textMut }, grid: { color: colors.grid, drawBorder: false } }
+    };
+
+    // --- Initialization Functions ---
+
+    function initKpis(statsData) {
+        document.getElementById('kpi-resolution').textContent = statsData.avg_resolution_minutes || '-';
+
+        let total = 0;
+        let passed = 0;
+
+        // Sum up project stats to get global KPIs
+        if (statsData.project_stats) {
+            Object.values(statsData.project_stats).forEach(p => {
+                total += p.total;
+                passed += p.passed;
             });
+        }
 
-            const ctxPassRate = document.getElementById('passRateChart').getContext('2d');
-            new Chart(ctxPassRate, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Pass Rate (%)',
-                        data: passRates,
-                        borderColor: '#4caf84', // new success green
-                        backgroundColor: 'rgba(76, 175, 132, 0.2)',
-                        fill: true,
-                        tension: 0.3
-                    }]
+        document.getElementById('kpi-total').textContent = total || '-';
+        if (total > 0) {
+            const rate = ((passed / total) * 100).toFixed(1);
+            const el = document.getElementById('kpi-pass-rate');
+            el.textContent = rate + '%';
+            if (rate > 80) el.style.color = colors.success;
+            else if (rate > 50) el.style.color = colors.warning;
+            else el.style.color = colors.error;
+        }
+    }
+
+    function initPassRateChart(data) {
+        if (!data.daily) return;
+        const labels = Object.keys(data.daily);
+        const passRates = labels.map(day => {
+            const total = data.daily[day].total;
+            return total === 0 ? 0 : (data.daily[day].passed / total) * 100;
+        });
+
+        new Chart(document.getElementById('passRateChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pass Rate (%)',
+                    data: passRates,
+                    borderColor: colors.success,
+                    backgroundColor: colors.successBg,
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: colors.success,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: colors.success
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: commonScales.x,
+                    y: { ...commonScales.y, beginAtZero: true, max: 100 }
                 },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: { beginAtZero: true, max: 100, ticks: { color: '#8b8fa3' } },
-                        x: { ticks: { color: '#8b8fa3' } }
-                    },
-                    plugins: {
-                        legend: { labels: { color: '#8b8fa3' } }
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(26, 29, 39, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#e4e6f0',
+                        borderColor: 'rgba(46, 50, 71, 1)',
+                        borderWidth: 1
                     }
-                }
-            });
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false }
+            }
+        });
+    }
 
-            // Prepare Failing Checks data
-            const failLabels = data.failing_checks.map(c => c.name.length > 20 ? c.name.substring(0, 20) + '...' : c.name);
+    function initDiagnosticsCharts(data) {
+        // Failing Checks
+        if (data.failing_checks && data.failing_checks.length > 0) {
+            const failLabels = data.failing_checks.map(c => c.name.length > 25 ? c.name.substring(0, 25) + '...' : c.name);
             const failData = data.failing_checks.map(c => c.count);
 
-            const ctxFails = document.getElementById('failingChecksChart').getContext('2d');
-            new Chart(ctxFails, {
+            new Chart(document.getElementById('failingChecksChart').getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: failLabels,
                     datasets: [{
                         label: 'Fail Count',
                         data: failData,
-                        backgroundColor: '#e05454' // new error red
+                        backgroundColor: colors.error,
+                        borderRadius: 4
                     }]
                 },
                 options: {
                     responsive: true,
-                    indexAxis: 'y', // horizontal bar chart
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
                     scales: {
-                        y: { ticks: { color: '#8b8fa3' } },
-                        x: { beginAtZero: true, ticks: { color: '#8b8fa3', stepSize: 1 } }
+                        x: { ...commonScales.x, beginAtZero: true, ticks: { stepSize: 1 } },
+                        y: commonScales.y
                     },
-                    plugins: {
-                        legend: { display: false }
-                    }
+                    plugins: { legend: { display: false } }
                 }
             });
+        }
 
-            // Prepare Struggle Score data
-            document.getElementById('kpi-resolution').textContent = data.avg_resolution_minutes;
-
-            const struggleLabels = data.struggle_scores.map(c => c.name.length > 20 ? c.name.substring(0, 20) + '...' : c.name);
+        // Struggle Score
+        if (data.struggle_scores && data.struggle_scores.length > 0) {
+            const struggleLabels = data.struggle_scores.map(c => c.name.length > 25 ? c.name.substring(0, 25) + '...' : c.name);
             const struggleData = data.struggle_scores.map(c => c.count);
 
-            const ctxStruggle = document.getElementById('struggleChart').getContext('2d');
-            new Chart(ctxStruggle, {
+            new Chart(document.getElementById('struggleChart').getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: struggleLabels,
                     datasets: [{
                         label: 'Total Retries',
                         data: struggleData,
-                        backgroundColor: '#e5a54b' // new warning yellow
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    indexAxis: 'x',
-                    scales: {
-                        y: { beginAtZero: true, ticks: { color: '#8b8fa3', stepSize: 1 } },
-                        x: { ticks: { color: '#8b8fa3' } }
-                    },
-                    plugins: {
-                        legend: { display: false }
-                    }
-                }
-            });
-
-            // Prepare Project Stats data
-            if (data.project_stats) {
-                const projectLabels = Object.keys(data.project_stats);
-                const projectTotalData = projectLabels.map(p => data.project_stats[p].total);
-                const projectPassData = projectLabels.map(p => {
-                    const total = data.project_stats[p].total;
-                    return total > 0 ? ((data.project_stats[p].passed / total) * 100).toFixed(1) : 0;
-                });
-
-                const ctxProject = document.getElementById('projectStatsChart').getContext('2d');
-                new Chart(ctxProject, {
-                    type: 'bar',
-                    data: {
-                        labels: projectLabels,
-                        datasets: [
-                            {
-                                label: 'Total Contracts',
-                                data: projectTotalData,
-                                backgroundColor: '#4070f4',
-                                yAxisID: 'y'
-                            },
-                            {
-                                label: 'Pass Rate (%)',
-                                data: projectPassData,
-                                type: 'line',
-                                borderColor: '#4caf84',
-                                backgroundColor: '#4caf84',
-                                yAxisID: 'y1'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: { ticks: { color: '#8b8fa3' } },
-                            y: {
-                                type: 'linear', display: true, position: 'left',
-                                ticks: { color: '#8b8fa3', stepSize: 1 },
-                                title: { display: true, text: 'Total Contracts', color: '#8b8fa3' }
-                            },
-                            y1: {
-                                type: 'linear', display: true, position: 'right',
-                                min: 0, max: 100,
-                                grid: { drawOnChartArea: false },
-                                ticks: { color: '#4caf84' },
-                                title: { display: true, text: 'Pass Rate (%)', color: '#4caf84' }
-                            }
-                        },
-                        plugins: {
-                            legend: { labels: { color: '#8b8fa3' } }
-                        }
-                    }
-                });
-            }
-        })
-        .catch(err => console.error(err));
-
-    fetch('/api/agent_performance')
-        .then(r => r.json())
-        .then(data => {
-            if (data.error || !data.agents) return;
-
-            // Sort agents by total contracts down
-            data.agents.sort((a, b) => b.total_contracts - a.total_contracts);
-
-            const agentLabels = data.agents.map(a => a.agent_id);
-            const passRateData = data.agents.map(a => a.pass_rate);
-
-            const ctxAgent = document.getElementById('agentPerformanceChart').getContext('2d');
-            new Chart(ctxAgent, {
-                type: 'bar',
-                data: {
-                    labels: agentLabels,
-                    datasets: [{
-                        label: 'Pass Rate (%)',
-                        data: passRateData,
-                        backgroundColor: '#4070f4' // nice blue
+                        backgroundColor: colors.warning,
+                        borderRadius: 4
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    indexAxis: 'y', // horizontal bar chart
+                    indexAxis: 'y',
                     scales: {
-                        y: { ticks: { color: '#8b8fa3' } },
-                        x: { beginAtZero: true, max: 100, ticks: { color: '#8b8fa3', stepSize: 10 } }
+                        x: { ...commonScales.x, beginAtZero: true, ticks: { stepSize: 1 } },
+                        y: commonScales.y
                     },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    const agent = data.agents[context.dataIndex];
-                                    return [
-                                        `Pass Rate: ${agent.pass_rate}%`,
-                                        `Total: ${agent.total_contracts} (${agent.passed} passed, ${agent.failed} failed, ${agent.rejected} rejected)`,
-                                        `Avg Resolution: ${agent.avg_resolution_minutes} min`,
-                                        `Most Common Failure: ${agent.most_common_failure}`,
-                                        `Trust Score: ${agent.trust_score}`
-                                    ];
-                                }
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    function initProjectStatsChart(data) {
+        if (!data.project_stats) return;
+
+        const labels = Object.keys(data.project_stats);
+        if (labels.length === 0) return;
+
+        const totalData = labels.map(p => data.project_stats[p].total);
+        const passData = labels.map(p => {
+            const total = data.project_stats[p].total;
+            return total > 0 ? ((data.project_stats[p].passed / total) * 100).toFixed(1) : 0;
+        });
+
+        new Chart(document.getElementById('projectStatsChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Total Contracts',
+                        data: totalData,
+                        backgroundColor: colors.blueBg,
+                        borderColor: colors.blue,
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Pass Rate (%)',
+                        data: passData,
+                        type: 'line',
+                        borderColor: colors.success,
+                        backgroundColor: colors.success,
+                        pointBackgroundColor: colors.success,
+                        yAxisID: 'y1',
+                        tension: 0.2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: commonScales.x,
+                    y: {
+                        ...commonScales.y,
+                        type: 'linear', display: true, position: 'left',
+                        title: { display: true, text: 'Total Contracts', color: colors.textMut }
+                    },
+                    y1: {
+                        type: 'linear', display: true, position: 'right',
+                        min: 0, max: 100,
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: colors.success },
+                        title: { display: true, text: 'Pass Rate (%)', color: colors.success }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } }
+                }
+            }
+        });
+    }
+
+    function initAgentPerformanceChart(agentsData) {
+        if (!agentsData || agentsData.length === 0) return;
+
+        // Sort by total contracts descending
+        const sorted = [...agentsData].sort((a, b) => b.total_contracts - a.total_contracts);
+
+        const labels = sorted.map(a => a.agent_id);
+        const passRates = sorted.map(a => a.pass_rate);
+
+        new Chart(document.getElementById('agentPerformanceChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pass Rate (%)',
+                    data: passRates,
+                    backgroundColor: colors.blue,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                scales: {
+                    x: { ...commonScales.x, beginAtZero: true, max: 100 },
+                    y: commonScales.y
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                const agent = sorted[context.dataIndex];
+                                return [
+                                    `Pass Rate: ${agent.pass_rate}%`,
+                                    `Total: ${agent.total_contracts} (${agent.passed} pass, ${agent.failed} fail)`,
+                                    `Avg Resolution: ${agent.avg_resolution_minutes} min`,
+                                    `Trust Score: ${agent.trust_score}`
+                                ];
                             }
                         }
                     }
                 }
-            });
+            }
+        });
+    }
+
+    // --- Main Fetch Logic ---
+    Promise.all([
+        fetch('/api/stats_data').then(r => r.json()),
+        fetch('/api/agent_performance').then(r => r.json())
+    ])
+        .then(([statsData, agentData]) => {
+            if (!statsData.error) {
+                initKpis(statsData);
+                initPassRateChart(statsData);
+                initDiagnosticsCharts(statsData);
+                initProjectStatsChart(statsData);
+            } else {
+                console.error("Error fetching stats data:", statsData.error);
+            }
+
+            if (!agentData.error && agentData.agents) {
+                initAgentPerformanceChart(agentData.agents);
+            } else {
+                console.error("Error fetching agent data:", agentData.error);
+            }
         })
-        .catch(err => console.error("Error fetching agent performance:", err));
+        .catch(err => console.error("Error initializing dashboard:", err));
+
 </script>
 {% endblock %}

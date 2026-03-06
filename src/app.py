@@ -135,7 +135,7 @@ def dashboard():
 
     # Letzte 10 aktive/neue Contracts
     cur.execute("""
-        SELECT id, description, task, status, agent_id, language, workspace_hash, created_at 
+        SELECT id, description, task, status, agent_id, language, checks_json, workspace_hash, created_at 
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
@@ -176,7 +176,7 @@ def api_dashboard():
         stats['rate'] = round((stats['passed'] / completed) * 100, 1)
 
     cur.execute("""
-        SELECT id, description, task, status, agent_id, language, workspace_hash, created_at 
+        SELECT id, description, task, status, agent_id, language, checks_json, workspace_hash, created_at 
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
@@ -205,7 +205,7 @@ def history():
     per_page = 50
     offset = (page - 1) * per_page
     
-    query = "SELECT id, description, task, status, agent_id, language, workspace_hash, created_at FROM contracts WHERE 1=1"
+    query = "SELECT id, description, task, status, agent_id, language, checks_json, workspace_hash, created_at FROM contracts WHERE 1=1"
     count_query = "SELECT COUNT(*) FROM contracts WHERE 1=1"
     params = []
     

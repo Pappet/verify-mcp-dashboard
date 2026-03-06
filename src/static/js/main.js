@@ -26,7 +26,7 @@ function refreshDashboard() {
                 rowsHtml += `
                 <tr>
                     <td><strong>${c.description}</strong><br><small>${c.task}</small></td>
-                    <td><span class="badge bg-${c.status}">${c.status.toUpperCase()}</span></td>
+                    <td><span class="badge" data-bg="${c.status}">${c.status.toUpperCase()}</span></td>
                     <td>${dateSplit}</td>
                     <td><a href="/contract/${c.id}">View Details</a></td>
                 </tr>`;

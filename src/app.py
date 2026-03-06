@@ -43,6 +43,62 @@ def init_dashboard_db():
 
 init_dashboard_db()
 
+def get_projects_map():
+    xdg_data = os.environ.get("XDG_DATA_HOME")
+    if xdg_data:
+        base = os.path.join(xdg_data, "verify-mcp")
+    else:
+        base = os.path.join(os.path.expanduser("~"), ".local", "share", "verify-mcp")
+    
+    projects_file = os.path.join(base, "projects.json")
+    if os.path.exists(projects_file):
+        try:
+            with open(projects_file, 'r') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def extract_project_path(checks_json_str):
+    if not checks_json_str:
+        return None
+    try:
+        checks = json.loads(checks_json_str)
+        if isinstance(checks, list):
+            for chk in checks:
+                ct = chk.get('check_type', {})
+                wd = ct.get('working_dir')
+                if wd and isinstance(wd, str) and wd.startswith('/'):
+                    return wd
+                p = ct.get('path')
+                if p and isinstance(p, str) and p.startswith('/'):
+                    return os.path.dirname(p)
+                paths = ct.get('paths')
+                if paths and isinstance(paths, list) and len(paths) > 0:
+                    p = paths[0]
+                    if isinstance(p, str) and p.startswith('/'):
+                        return os.path.dirname(p)
+    except Exception:
+        pass
+    return None
+
+def resolve_project_name(contract_dict, projects_map):
+    path = extract_project_path(contract_dict.get('checks_json'))
+    if path:
+        curr = path
+        while curr != '/' and curr != '':
+            if curr in projects_map:
+                return projects_map[curr]
+            curr = os.path.dirname(curr)
+        base = os.path.basename(path)
+        if base:
+            return base
+            
+    hash_val = contract_dict.get('workspace_hash')
+    if hash_val:
+        return projects_map.get(hash_val, f"Workspace ({hash_val[:8]})")
+    return "Unknown Project"
+
 def get_db():
     db_path = get_db_path()
     if not os.path.exists(db_path):
@@ -83,7 +139,15 @@ def dashboard():
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
-    active_contracts = cur.fetchall()
+    rows = cur.fetchall()
+    
+    projects_map = get_projects_map()
+    active_contracts = []
+    for r in rows:
+        c = dict(r)
+        c['project_name'] = resolve_project_name(c, projects_map)
+        active_contracts.append(c)
+        
     conn.close()
 
     return render_template('dashboard.html', stats=stats, active_contracts=active_contracts)
@@ -116,7 +180,14 @@ def api_dashboard():
         FROM contracts 
         ORDER BY created_at DESC LIMIT 10
     """)
-    active_contracts = [dict(row) for row in cur.fetchall()]
+    
+    projects_map = get_projects_map()
+    active_contracts = []
+    for r in cur.fetchall():
+        c = dict(r)
+        c['project_name'] = resolve_project_name(c, projects_map)
+        active_contracts.append(c)
+        
     conn.close()
 
     return jsonify({"stats": stats, "active_contracts": active_contracts})
@@ -167,7 +238,14 @@ def history():
     params.append(per_page)
     params.append(offset)
     cur.execute(query, params)
-    contracts = cur.fetchall()
+    
+    projects_map = get_projects_map()
+    contracts = []
+    for r in cur.fetchall():
+        c = dict(r)
+        c['project_name'] = resolve_project_name(c, projects_map)
+        contracts.append(c)
+        
     conn.close()
     
     return render_template('history.html', contracts=contracts, page=page, total_pages=total_pages)
@@ -476,6 +554,9 @@ def contract_detail(contract_id):
         # Für rejected contracts kann checks_json malformed sein
         pass
 
+    projects_map = get_projects_map()
+    contract_dict['project_name'] = resolve_project_name(contract_dict, projects_map)
+
     return render_template('detail.html', contract=contract_dict, results=results, 
                            audit_events=audit_events, rejection_reason=rejection_reason)
 
@@ -493,7 +574,7 @@ def rejected():
     per_page = 50
     offset = (page - 1) * per_page
     
-    query = "SELECT id, description, task, agent_id, checks_json, created_at FROM contracts WHERE status = 'rejected'"
+    query = "SELECT id, description, task, agent_id, checks_json, workspace_hash, created_at FROM contracts WHERE status = 'rejected'"
     count_query = "SELECT COUNT(*) FROM contracts WHERE status = 'rejected'"
     params = []
     
@@ -513,9 +594,11 @@ def rejected():
     rows = cur.fetchall()
     
     # Rejection reasons aus audit_events joinen
+    projects_map = get_projects_map()
     contracts = []
     for row in rows:
         c = dict(row)
+        c['project_name'] = resolve_project_name(c, projects_map)
         cur.execute(
             "SELECT details FROM audit_events WHERE contract_id = ? AND event_type = 'contract_rejected' LIMIT 1",
             (c['id'],)
@@ -537,7 +620,7 @@ def api_rejected():
 
     cur = conn.cursor()
     cur.execute("""
-        SELECT c.id, c.description, c.task, c.agent_id, c.created_at,
+        SELECT c.id, c.description, c.task, c.agent_id, c.created_at, c.workspace_hash,
                ae.details as rejection_reason
         FROM contracts c
         LEFT JOIN audit_events ae ON ae.contract_id = c.id AND ae.event_type = 'contract_rejected'
@@ -546,7 +629,14 @@ def api_rejected():
         LIMIT 100
     """)
     rows = cur.fetchall()
-    contracts = [dict(r) for r in rows]
+    
+    projects_map = get_projects_map()
+    contracts = []
+    for r in rows:
+        c = dict(r)
+        c['project_name'] = resolve_project_name(c, projects_map)
+        contracts.append(c)
+        
     conn.close()
     
     return jsonify({"rejected_contracts": contracts})

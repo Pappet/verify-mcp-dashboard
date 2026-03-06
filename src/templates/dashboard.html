@@ -38,6 +38,7 @@
     <table id="contracts-table">
         <tr>
             <th>Task</th>
+            <th>Project</th>
             <th>Identity</th>
             <th>Status</th>
             <th>Created At</th>
@@ -46,9 +47,11 @@
         {% for c in active_contracts %}
         <tr>
             <td><strong>{{ c.description }}</strong><br><small>{{ c.task }}</small></td>
+            <td><strong>{{ c.project_name }}</strong><br><small title="{{ c.workspace_hash }}">{{ c.workspace_hash[:8]
+                    if c.workspace_hash else 'N/A' }}...</small></td>
             <td>{% if c.agent_id %}{{ c.agent_id }}<br><small>{{ c.language }}</small>{% else %}<em>Unknown</em>{% endif
                 %}</td>
-            <td><span class="badge bg-{{ c.status }}">{{ c.status.replace('_', ' ').upper() }}</span></td>
+            <td><span class="badge" data-bg="{{ c.status }}">{{ c.status.replace('_', ' ').upper() }}</span></td>
             <td>{{ c.created_at[:16].replace('T', ' ') }}</td>
             <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}">View Details</a></td>
         </tr>

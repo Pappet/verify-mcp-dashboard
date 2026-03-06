@@ -32,7 +32,7 @@
                 <tr>
                     <td><code>{{ c.id[:8] }}...</code></td>
                     <td>{{ c.task }}</td>
-                    <td><span class="badge bg-{{ c.status }}">{{ c.status.upper() }}</span></td>
+                    <td><span class="badge" data-bg="{{ c.status }}">{{ c.status.upper() }}</span></td>
                     <td>{{ c.created_at[:19].replace('T', ' ') }}</td>
                     <td><a href="{{ url_for('contract_detail', contract_id=c.id) }}" class="btn">View Details</a></td>
                 </tr>

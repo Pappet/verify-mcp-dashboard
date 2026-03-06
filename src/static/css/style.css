@@ -178,32 +178,38 @@ tr:hover {
     display: inline-block;
 }
 
-.bg-passed {
+.bg-passed,
+[data-bg="passed"] {
     background: rgba(76, 175, 132, 0.15);
     color: var(--success);
 }
 
-.bg-failed {
+.bg-failed,
+[data-bg="failed"] {
     background: rgba(224, 84, 84, 0.15);
     color: var(--error);
 }
 
-.bg-running {
+.bg-running,
+[data-bg="running"] {
     background: rgba(108, 140, 255, 0.15);
     color: var(--accent-blue);
 }
 
-.bg-pending {
+.bg-pending,
+[data-bg="pending"] {
     background: rgba(229, 165, 75, 0.15);
     color: var(--warning);
 }
 
-.bg-rejected {
+.bg-rejected,
+[data-bg="rejected"] {
     background: rgba(176, 124, 198, 0.15);
     color: var(--rejected);
 }
 
-.bg-review_required {
+.bg-review_required,
+[data-bg="review_required"] {
     background: rgba(229, 165, 75, 0.15);
     color: var(--warning);
 }
@@ -321,17 +327,20 @@ code {
     transition: border-color 0.15s ease;
 }
 
-.timeline-item.passed::before {
+.timeline-item.passed::before,
+.timeline-item[data-marker="passed"]::before {
     border-color: var(--success);
     background: rgba(76, 175, 132, 0.2);
 }
 
-.timeline-item.failed::before {
+.timeline-item.failed::before,
+.timeline-item[data-marker="failed"]::before {
     border-color: var(--error);
     background: rgba(224, 84, 84, 0.2);
 }
 
-.timeline-item.rejected::before {
+.timeline-item.rejected::before,
+.timeline-item[data-marker="rejected"]::before {
     border-color: var(--rejected);
     background: rgba(176, 124, 198, 0.2);
 }
@@ -384,3 +393,9 @@ a:hover {
 .animate-flash {
     animation: flash-new 0.6s ease-out;
 }
+
+/* Missing utility classes for syntax highlighting and layout used dynamically */
+.language-log,
+.language-json,
+.pagination,
+.rejection-reason {}

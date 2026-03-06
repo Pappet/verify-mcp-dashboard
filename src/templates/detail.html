@@ -10,14 +10,15 @@
 <div class="card">
     <h2>{{ contract.description }}</h2>
     <p><strong>Task:</strong> {{ contract.task }}</p>
-    <p><strong>Status:</strong> <span class="badge bg-{{ contract.status }}">{{ contract.status.replace('_', '
+    <p><strong>Status:</strong> <span class="badge" data-bg="{{ contract.status }}">{{ contract.status.replace('_', '
             ').upper() }}</span></p>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
         <div>
             <p style="margin: 0;"><strong>Agent Identity:</strong> {% if contract.agent_id %}{{ contract.agent_id }} ({{
                 contract.language }}){% else %}Unknown{% endif %}</p>
-            <p style="margin: 5px 0 0 0;"><strong>Workspace Hash:</strong>
-                <code>{{ contract.workspace_hash or 'None' }}</code></p>
+            <p style="margin: 5px 0 0 0;"><strong>Project:</strong> {{ contract.project_name }}<br>
+                <small>Hash: <code>{{ contract.workspace_hash or 'None' }}</code></small>
+            </p>
         </div>
         <div>
             <p style="margin: 0;"><strong>Created:</strong> {{ contract.created_at.replace('T', ' ') }}</p>
@@ -42,7 +43,7 @@
     style="border-left: 4px solid {% if r.status == 'passed' %}var(--green){% else %}var(--red){% endif %};">
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <h3 style="margin: 0;">{{ r.check_name }}</h3>
-        <span class="badge bg-{{ r.status }}">{{ r.status.upper() }} ({{ r.duration_ms }}ms)</span>
+        <span class="badge" data-bg="{{ r.status }}">{{ r.status.upper() }} ({{ r.duration_ms }}ms)</span>
     </div>
     <p><strong>Message:</strong> {{ r.message }}</p>
     {% if r.definition_json and r.definition_json != '{}' %}
@@ -76,7 +77,7 @@
         {% for event in audit_events %}
         {% set marker_class = 'passed' if 'passed' in event.event_type else ('failed' if 'failed' in event.event_type
         else ('rejected' if 'rejected' in event.event_type else '')) %}
-        <div class="timeline-item {{ marker_class }}">
+        <div class="timeline-item" data-marker="{{ marker_class }}">
             <div class="timeline-date">{{ event.created_at[:19].replace('T', ' ') }}</div>
             <div class="timeline-content">
                 <strong>{{ event.event_type }}</strong>

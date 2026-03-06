@@ -48,6 +48,7 @@ The Verify MCP Server tracks "verification contracts" (checks that ensure AI age
 
 - The dashboard reads entirely from `verify.db` (usually managed by the MCP server).
 - It queries the `templates` table directly from the MCP server, providing always-up-to-date built-in and promoted templates.
+- **Project Mapping**: You can create a `projects.json` file in the same directory as the database (e.g. `~/.local/share/verify-mcp/projects.json`) with the format `{"workspace_hash": "Project Name"}` to automatically display readable project names instead of raw hashes on the dashboard.
 
 ## Contribution
 

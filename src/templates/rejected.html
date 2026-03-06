@@ -29,6 +29,7 @@
                 <tr>
                     <th>ID</th>
                     <th>Task</th>
+                    <th>Project</th>
                     <th>Agent</th>
                     <th>Rejection Reason</th>
                     <th>Date</th>
@@ -43,6 +44,8 @@
                         <strong>{{ c.description }}</strong><br>
                         <small>{{ c.task }}</small>
                     </td>
+                    <td><strong>{{ c.project_name }}</strong><br><small title="{{ c.workspace_hash }}">{{
+                            c.workspace_hash[:8] if c.workspace_hash else 'N/A' }}...</small></td>
                     <td><code>{{ c.agent_id }}</code></td>
                     <td>
                         <span class="rejection-reason">{{ c.rejection_reason[:120] }}{% if c.rejection_reason|length >

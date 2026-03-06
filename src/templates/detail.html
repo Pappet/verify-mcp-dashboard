@@ -16,8 +16,8 @@
         <div>
             <p style="margin: 0;"><strong>Agent Identity:</strong> {% if contract.agent_id %}{{ contract.agent_id }} ({{
                 contract.language }}){% else %}Unknown{% endif %}</p>
-            <p style="margin: 5px 0 0 0;"><strong>Workspace Hash:</strong>
-                <code>{{ contract.workspace_hash or 'None' }}</code>
+            <p style="margin: 5px 0 0 0;"><strong>Project:</strong> {{ contract.project_name }}<br>
+                <small>Hash: <code>{{ contract.workspace_hash or 'None' }}</code></small>
             </p>
         </div>
         <div>

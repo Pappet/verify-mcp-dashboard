@@ -13,12 +13,15 @@ The Verify MCP Dashboard is a modern, responsive web application for monitoring,
 
 The Verify MCP Dashboard is a lightweight frontend application built using **Flask** and **Jinja2**. It connects directly to SQLite databases to present an interactive UI without requiring a complex backend setup or ORM.
 
-### Databases
+### Databases & Config Files
 
 1. **`verify.db` (Read-only for dashboard)**
    - Managed by the external `verify-mcp-server`.
    - Contains contracts, check results, agent metadata, trust scores, and audit events.
    - The dashboard uses this to generate stats, history, templates, and anomaly reports.
+
+2. **`projects.json` (Optional metadata)**
+   - Local JSON map used to translate raw `workspace_hash` into human-readable Project Names for easier tracking across multiple codebases.
 
 ### Core Components
 

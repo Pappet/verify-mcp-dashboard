@@ -407,52 +407,34 @@ def api_stats_data():
             daily_stats[day][st] += cnt
             daily_stats[day]['total'] += cnt
             
-    cur.execute("SELECT * FROM audit_events ORDER BY contract_id, created_at ASC")
-    all_audit_rows = cur.fetchall()
+    # Resolution time from audit_events
+    cur.execute("""
+        SELECT contract_id, event_type, created_at
+        FROM audit_events
+        WHERE event_type IN ('contract_created', 'verification_passed')
+        ORDER BY contract_id, created_at ASC
+    """)
+    resolution_rows = cur.fetchall()
     
-    # Contract Aggregation
-    contract_events = {}
-    for r in all_audit_rows:
+    contract_times = {} # type: ignore
+    for r in resolution_rows:
         cid = r['contract_id']
-        if cid not in contract_events:
-            contract_events[cid] = []
-        contract_events[cid].append(dict(r))
-        
+        if cid not in contract_times:
+            contract_times[cid] = {'created': None, 'passed': None}
+        try:
+            ts = datetime.fromisoformat(r['created_at'].replace('Z', '+00:00'))
+            if r['event_type'] == 'contract_created':
+                contract_times[cid]['created'] = ts
+            elif r['event_type'] == 'verification_passed':
+                contract_times[cid]['passed'] = ts
+        except Exception:
+            pass
+    
     total_resolution_time_seconds = 0.0
     resolved_contracts_count = 0
-    struggle_scores = {} # type: ignore
-    
-    for cid, events in contract_events.items():
-        created_time = None
-        passed_time = None
-        
-        # Parse Dates
-        for evt in events:
-            if evt['event_type'] == 'contract_created':
-                try:
-                    created_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
-                except:
-                    pass
-            elif evt['event_type'] == 'verification_passed':
-                try:
-                    passed_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
-                except:
-                    pass
-            elif evt['event_type'] == 'verification_failed':
-                # Parse details for failing checks
-                if evt['details']:
-                    try:
-                        details_json = json.loads(evt['details'])
-                        if isinstance(details_json, list):
-                            for c in details_json:
-                                if c.get('status') == 'failed':
-                                    cname = c.get('check', 'Unknown')
-                                    struggle_scores[cname] = struggle_scores.get(cname, 0) + 1
-                    except:
-                        pass
-        
-        if created_time and passed_time:
-            delta = (passed_time - created_time).total_seconds()
+    for cid, times in contract_times.items():
+        if times['created'] and times['passed']:
+            delta = (times['passed'] - times['created']).total_seconds()
             if delta > 0:
                 total_resolution_time_seconds += delta
                 resolved_contracts_count += 1
@@ -463,9 +445,21 @@ def api_stats_data():
         
     avg_resolution_minutes = round(avg_resolution_seconds / 60, 2)
     
-    # Top 10 Struggling Checks
-    sorted_struggle = sorted(struggle_scores.items(), key=lambda x: x[1], reverse=True)[:10]
-    struggle_list = [{'name': k, 'count': v} for k, v in sorted_struggle]
+    # Struggle Scores: use check_results to count how often each check failed
+    # across contracts that had at least one verification_failed event (retries)
+    cur.execute("""
+        SELECT cr.check_name, COUNT(*) as fail_count
+        FROM check_results cr
+        WHERE cr.status = 'failed'
+          AND cr.contract_id IN (
+              SELECT DISTINCT contract_id FROM audit_events
+              WHERE event_type = 'verification_failed'
+          )
+        GROUP BY cr.check_name
+        ORDER BY fail_count DESC
+        LIMIT 10
+    """)
+    struggle_list = [{'name': r['check_name'], 'count': r['fail_count']} for r in cur.fetchall()]
     
     # Legacy DB Failing Checks
     cur.execute("""
@@ -739,8 +733,6 @@ def api_agent_performance():
         
         total_res_seconds = 0.0
         resolved_count = 0
-        struggle_scores = {}
-        
         for cid, events in events_by_contract.items():
             created_time = None
             passed_time = None
@@ -756,17 +748,6 @@ def api_agent_performance():
                         passed_time = datetime.fromisoformat(evt['created_at'].replace('Z', '+00:00'))
                     except Exception:
                         pass
-                elif evt['event_type'] == 'verification_failed':
-                    if evt['details']:
-                        try:
-                            details_json = json.loads(evt['details'])
-                            if isinstance(details_json, list):
-                                for c in details_json:
-                                    if c.get('status') == 'failed':
-                                        cname = c.get('check', 'Unknown')
-                                        struggle_scores[cname] = struggle_scores.get(cname, 0) + 1
-                        except Exception:
-                            pass
                             
             if created_time and passed_time:
                 delta = (passed_time - created_time).total_seconds()
@@ -777,10 +758,23 @@ def api_agent_performance():
         avg_resolution_minutes = 0.0
         if resolved_count > 0:
             avg_resolution_minutes = round((total_res_seconds / resolved_count) / 60, 2)
-            
+        
+        # Most common failure for this agent from check_results
+        agent_contract_ids = list(events_by_contract.keys())
         most_common_failure = "none"
-        if struggle_scores:
-            most_common_failure = max(struggle_scores.items(), key=lambda x: x[1])[0]
+        if agent_contract_ids:
+            placeholders = ','.join(['?'] * len(agent_contract_ids))
+            cur.execute(f"""
+                SELECT check_name, COUNT(*) as cnt
+                FROM check_results
+                WHERE status = 'failed' AND contract_id IN ({placeholders})
+                GROUP BY check_name
+                ORDER BY cnt DESC
+                LIMIT 1
+            """, agent_contract_ids)
+            row = cur.fetchone()
+            if row:
+                most_common_failure = row['check_name']
             
         agents_data.append({
             "agent_id": aid,
